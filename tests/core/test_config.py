@@ -37,6 +37,8 @@ def test_cached_settings_reload(monkeypatch: pytest.MonkeyPatch) -> None:
     ("app_port", 0), ("mysql_port", 65536), ("deepseek_temperature", 3),
     ("deepseek_timeout_seconds", 0), ("deepseek_max_retries", -1),
     ("agent_recursion_limit", 0), ("log_level", "UNKNOWN"),
+    ("auth_token_ttl_seconds", 0), ("auth_token_ttl_seconds", 86401),
+    ("auth_jwt_issuer", ""), ("auth_jwt_audience", ""),
 ])
 def test_invalid_settings(field: str, value: object) -> None:
     """验证端口、超时、步骤和日志级别的非法值被拒绝。"""

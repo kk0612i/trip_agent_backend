@@ -63,6 +63,13 @@ class Settings(BaseSettings):
     mysql_connect_timeout_seconds: int = Field(default=10, gt=0, description="数据库连接超时秒数")
     mysql_echo: bool = Field(default=False, description="SQL 调试日志开关")
 
+    auth_jwt_secret: SecretStr = Field(default=SecretStr(""), description="访问令牌签名密钥")
+    auth_jwt_issuer: str = Field(default="trip-agents", min_length=1, description="访问令牌签发方")
+    auth_jwt_audience: str = Field(default="trip-agents-api", min_length=1, description="访问令牌接收方")
+    auth_token_ttl_seconds: int = Field(
+        default=1800, gt=0, le=86400, description="访问令牌有效秒数",
+    )
+
     log_level: Literal["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"] = Field(
         default="INFO", description="日志输出级别"
     )

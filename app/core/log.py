@@ -43,7 +43,10 @@ def _make_formatter(settings: Settings, *, structured: bool) -> Callable[[dict[s
     secrets = sorted(
         {
             secret.get_secret_value()
-            for secret in (settings.amap_api_key, settings.deepseek_api_key, settings.mysql_password)
+            for secret in (
+                settings.amap_api_key, settings.deepseek_api_key,
+                settings.mysql_password, settings.auth_jwt_secret,
+            )
             if secret.get_secret_value()
         },
         key=len,
@@ -81,10 +84,22 @@ def _make_formatter(settings: Settings, *, structured: bool) -> Callable[[dict[s
         exception = record["exception"]
         if exception:
             payload["error_type"] = exception.type.__name__
-            # 不采集局部变量；堆栈由调用 logger.exception 的边界负责记录。
-            payload["exception"] = "".join(
-                traceback.format_exception(exception.type, exception.value, exception.traceback)
-            )
+            if extra.get("sanitize_exception"):
+                # API 异常可能含 SQL 参数或原始输入，仅记录调用位置与异常类型。
+                frames = traceback.extract_tb(exception.traceback)
+                locations = "".join(
+                    f'  File "{frame.filename}", line {frame.lineno}, in {frame.name}\n'
+                    for frame in frames
+                )
+                payload["exception"] = (
+                    "Traceback (most recent call last):\n" + locations
+                    + f"{exception.type.__name__}: 请求处理失败\n"
+                )
+            else:
+                # 不采集局部变量；普通异常仍由调用日志的明确边界负责记录。
+                payload["exception"] = "".join(
+                    traceback.format_exception(exception.type, exception.value, exception.traceback)
+                )
 
         if structured:
             # 先脱敏再编码，包含换行、引号的密钥也能被替换，且不破坏 JSON。

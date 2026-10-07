@@ -13,6 +13,7 @@ def test_application_lifecycle(monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
     """验证生命周期加载配置、正常启动和关闭，无外部服务依赖。"""
     monkeypatch.setenv("LOG_FORMAT", "json")
     monkeypatch.setenv("LOG_ENQUEUE", "false")
+    monkeypatch.setenv("AUTH_JWT_SECRET", "lifecycle-test-signing-secret-at-least-32-bytes")
     app = create_app()
     with TestClient(app) as client:
         assert isinstance(app.state.settings, Settings)
@@ -23,3 +24,14 @@ def test_application_lifecycle(monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
     assert lifecycle[0]["run_id"] == lifecycle[1]["run_id"]
     assert lifecycle[1]["duration_ms"] >= 0
     assert lifecycle[0]["entry_point"] == "api"
+
+
+@pytest.mark.parametrize("secret", ["", "short-secret"])
+def test_application_rejects_missing_or_short_signing_secret(
+    monkeypatch: pytest.MonkeyPatch, secret: str,
+) -> None:
+    """签名密钥不安全时启动即失败，不能生成默认密钥后继续提供认证。"""
+    monkeypatch.setenv("AUTH_JWT_SECRET", secret)
+    with pytest.raises(ValueError, match="AUTH_JWT_SECRET"):
+        with TestClient(create_app()):
+            pass

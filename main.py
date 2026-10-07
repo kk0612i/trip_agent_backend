@@ -2,30 +2,49 @@
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from secrets import token_urlsafe
 from time import perf_counter
 from uuid import uuid4
 
 import uvicorn
+from anyio import to_thread
+from argon2 import PasswordHasher, Type
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from loguru import logger
 
+from app.api.auth_router import router as auth_router
+from app.api.errors import business_error_handler, validation_error_handler
+from app.api.middleware import log_request
 from app.core.config import get_settings
+from app.core.db import create_db_engine, create_session_factory
+from app.core.errors import BusinessError
 from app.core.log import setup_logging
+from app.core.security import TokenCodec
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """在应用生命周期中加载配置、初始化日志并等待日志写入完成。"""
+    """加载配置、装配共享资源，并在关闭时释放引擎和日志队列。"""
     settings = get_settings()
     setup_logging(settings)
     app.state.settings = settings
     app.title = settings.app_name
+    app.state.token_codec = TokenCodec(settings)
+    app.state.password_hasher = PasswordHasher(type=Type.ID)
+    # 不存在的账户也执行一次哈希验证，减少按耗时枚举邮箱的差异。
+    app.state.dummy_password_hash = await to_thread.run_sync(
+        app.state.password_hasher.hash, token_urlsafe(32),
+    )
+    engine = create_db_engine(settings)
+    app.state.session_factory = create_session_factory(engine)
     started_at = perf_counter()
     with logger.contextualize(entry_point="api", run_id=uuid4().hex):
         logger.bind(event="application_started", status="success").info("应用启动完成")
         try:
             yield
         finally:
+            await engine.dispose()
             logger.bind(
                 event="application_stopped",
                 status="completed",
@@ -36,7 +55,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     """创建应用并注册生命周期，导入模块时不读取配置或连接外部服务。"""
-    return FastAPI(title="Trip Agents", lifespan=lifespan)
+    application = FastAPI(title="Trip Agents", lifespan=lifespan)
+    application.add_exception_handler(BusinessError, business_error_handler)
+    application.add_exception_handler(RequestValidationError, validation_error_handler)
+    application.middleware("http")(log_request)
+    application.include_router(auth_router)
+    return application
 
 
 app = create_app()

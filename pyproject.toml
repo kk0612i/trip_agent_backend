@@ -26,3 +26,8 @@ dependencies = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--ignore=tests/integration"
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.22.1",
+]

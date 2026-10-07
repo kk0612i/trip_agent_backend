@@ -12,9 +12,9 @@ mysql_url = settings.mysql_url
 
 `get_settings()` 使用 `@lru_cache(maxsize=1)` 延迟加载，返回不可变配置对象。更新 `.env` 后重启进程；测试或明确需要重载时使用 `get_settings.cache_clear()`。API Key 和密码是 `SecretStr`，仅在创建对应客户端时解包，不要输出整个配置对象。
 
-本次初始化允许密钥和数据库密码留空，方便启动项目骨架。接入高德、DeepSeek、数据库之前填写真实配置并在对应客户端初始化时校验。当前未创建客户端、数据库连接、业务表或 Agent 工作流；超时、重试、连接池和 Agent 上限目前是供后续实现使用的配置，需要在调用处传入并执行。
+认证启动需要配置至少 32 字节的随机 `AUTH_JWT_SECRET`，MySQL 连接沿用 `MYSQL_*` 配置。生命周期装配数据库引擎、会话工厂、密码哈希器和令牌编解码器，首次查询时建立数据库连接。地图和模型密钥仍可留空，接入相应客户端时再配置；Agent 上限尚待工作流调用处传入并执行。认证配置与接口见 [认证文档](authentication.md)。
 
-`settings.mysql_url` 返回 SQLAlchemy `URL` 对象，适用于未来的 `create_async_engine()`。其驱动为 `mysql+aiomysql`，构造时自动处理密码中的 `@`、`:` 等字符；默认字符串表示隐藏密码。现有 `scripts/trip_agents.sql` 需自行选择数据库后执行，应用启动不会自动建表。
+`settings.mysql_url` 返回 SQLAlchemy `URL` 对象，由 `app/core/db.py` 的 `create_async_engine()` 使用。其驱动为 `mysql+aiomysql`，构造时自动处理密码中的 `@`、`:` 等字符；默认字符串表示隐藏密码。连接配置 UTC 时区、连接池与连接超时，并隐藏 SQL 参数。现有 `scripts/trip_agents.sql` 需自行选择数据库后执行，应用启动不会自动建表。
 
 日志统一由 `app/core/log.py` 的 `setup_logging(settings)` 初始化。FastAPI 生命周期和直接启动入口负责初始化，业务模块仅导入 `loguru.logger`。标准 `logging` 和 Uvicorn 日志转发到同一链路，重复初始化不会累积 Handler 或 Sink。
 
@@ -30,6 +30,6 @@ with logger.contextualize(request_id="请求关联标识", entry_point="api"):
 
 当前采用单 worker，文件名日期由 Loguru 按运行主机的本地时间在文件创建时填充。文件轮转和保留分别使用 `LOG_ROTATION`、`LOG_RETENTION`，默认仍按 10 MB 轮转，日期文件名本身不会触发每日轮转。同一天重复创建同名文件时会追加写入；轮转遇到同名文件时 Loguru 自动添加时间后缀以避免覆盖。容器部署建议使用默认控制台输出并由部署平台收集日志。`LOG_ENQUEUE=true` 使用队列写入，应用退出时等待日志完成。
 
-每条输出包含时间、级别、模块、进程号、事件名、request_id、run_id、entry_point。可附加 status、duration_ms、attempt、error_type、method、route、status_code、node、tool、call_id。其余附加字段不输出；异常堆栈不采集局部变量，已配置的高德 Key、DeepSeek Key 和 MySQL 密码会在消息及异常中脱敏。调用方仍需避免将认证头、提示词、消息历史、原始工具结果等敏感内容放进消息。
+每条输出包含时间、级别、模块、进程号、事件名、request_id、run_id、entry_point。可附加 status、duration_ms、attempt、error_type、method、route、status_code、node、tool、call_id。其余附加字段不输出；异常堆栈不采集局部变量，已配置的高德 Key、DeepSeek Key、MySQL 密码和 JWT 签名密钥会在消息及异常中脱敏。API 意外异常只输出调用位置和异常类型，不输出异常值、源码行或异常链中的原始详情。调用方仍需避免将认证头、提示词、消息历史、原始工具结果等敏感内容放进消息。
 
-当前日志覆盖应用启动与关闭；`run_id` 关联同一次生命周期。当前没有业务路由，未来 API/任务入口应创建请求或执行标识并进入日志上下文；Uvicorn 默认访问日志不自动生成 request_id。意外异常由最外层业务或 API 边界调用一次 `logger.exception`，恢复和重试使用 WARNING，正常关键事件使用 INFO。
+日志覆盖应用启动与关闭及认证路径。`run_id` 关联同一次生命周期，HTTP 入口为每次请求生成 `request_id`，通过 ContextVar 传播并以 `X-Request-ID` 返回；请求结束后恢复上下文。`http_request_completed` 记录方法、路由模板、状态码及单调时钟耗时；`auth_registered`、`auth_logged_in`、`auth_token_validated`、`auth_logged_out` 记录业务结果，写入成功事件位于提交之后。预期拒绝使用 WARNING，意外失败只在 API 边界记录一次 ERROR 堆栈。默认 Uvicorn 访问日志由独立的 Uvicorn 调用产生，不携带应用请求上下文，排障优先按应用事件的 request_id 查询。

@@ -10,6 +10,7 @@ from pydantic import (
     Field,
     SecretStr,
     field_validator,
+    model_validator,
 )
 
 
@@ -98,3 +99,42 @@ class ErrorResponse(BaseModel):
         default_factory=list,
         description="字段校验错误列表",
     )
+
+
+class AccessTokenClaims(BaseModel):
+    """校验签名验证后的声明类型及数据库可接受的取值范围。"""
+
+    model_config = ConfigDict(strict=True, hide_input_in_errors=True)
+
+    sub: str = Field(min_length=1, max_length=20, description="令牌对应的用户标识")
+    jti: str = Field(min_length=1, max_length=64, description="令牌唯一标识")
+    iss: str = Field(min_length=1, description="令牌签发方")
+    aud: str = Field(min_length=1, description="令牌接收方")
+    iat: int = Field(ge=0, le=253402300799, description="令牌签发时间戳")
+    exp: int = Field(gt=0, le=253402300799, description="令牌到期时间戳")
+
+    @field_validator("sub")
+    @classmethod
+    def validate_subject(cls, value: str) -> str:
+        """仅接受 MySQL 无符号 BIGINT 范围内的规范正整数标识。"""
+        if (
+            not value.isascii() or not value.isdecimal() or value.startswith("0")
+            or int(value) > 18446744073709551615
+        ):
+            raise ValueError("用户标识不合法")
+        return value
+
+    @model_validator(mode="after")
+    def validate_time_order(self) -> "AccessTokenClaims":
+        """要求令牌在签发之后到期。"""
+        if self.exp <= self.iat:
+            raise ValueError("令牌到期时间必须晚于签发时间")
+        return self
+
+
+class AuthenticatedUser(BaseModel):
+    """表示通过签名、声明、撤销状态及用户存在性校验的身份。"""
+
+    user_id: int = Field(gt=0, description="已认证用户标识")
+    jti: str = Field(min_length=1, max_length=64, description="已认证令牌唯一标识")
+    expires_at: AwareDatetime = Field(description="已认证令牌到期时间")

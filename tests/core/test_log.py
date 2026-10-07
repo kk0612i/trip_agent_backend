@@ -109,3 +109,15 @@ def test_production_always_json(capsys: pytest.CaptureFixture[str]) -> None:
     setup_logging(Settings(_env_file=None, app_env="production", log_format="text", log_enqueue=False))
     logger.info("生产日志")
     assert json.loads(capsys.readouterr().err)["message"] == "生产日志"
+
+
+def test_jwt_signing_secret_is_redacted(capsys: pytest.CaptureFixture[str]) -> None:
+    """签名密钥遵循其他配置密钥相同的日志脱敏规则。"""
+    secret = "private-auth-signing-secret-with-at-least-32-bytes"
+    setup_logging(Settings(
+        _env_file=None, auth_jwt_secret=secret, log_format="json", log_enqueue=False,
+    ))
+    logger.warning("意外携带密钥 {}", secret)
+    payload = json.loads(capsys.readouterr().err)
+    assert secret not in payload["message"]
+    assert "***" in payload["message"]
