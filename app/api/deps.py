@@ -9,9 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import InvalidToken
 from app.repository.revoked_token_repository import RevokedTokenRepository
+from app.repository.trip_plan_version_repository import TripPlanVersionRepository
+from app.repository.trip_repository import TripRepository
+from app.repository.trip_turn_repository import TripTurnRepository
 from app.repository.user_repository import UserRepository
 from app.schemas.auth_schema import AuthenticatedUser
 from app.services.auth_service import AuthService
+from app.services.trip_chat_service import TripChatService
+from app.services.trip_service import TripService
 
 
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
@@ -55,3 +60,30 @@ async def get_current_user(
 
 
 CurrentUserDep = Annotated[AuthenticatedUser, Depends(get_current_user)]
+
+
+def get_trip_service(session: SessionDep) -> TripService:
+    """注入本请求的会话及行程相关 Repository。"""
+    return TripService(
+        session=session,
+        trip_repo=TripRepository(session),
+        trip_plan_version_repo=TripPlanVersionRepository(session),
+        trip_turn_repo=TripTurnRepository(session),
+    )
+
+
+TripServiceDep = Annotated[TripService, Depends(get_trip_service)]
+
+
+def get_trip_chat_service(request: Request) -> TripChatService:
+    """注入会话工厂和图执行器；一轮对话跨多个事务，不复用请求会话。"""
+    settings = request.app.state.settings
+    return TripChatService(
+        request.app.state.session_factory,
+        request.app.state.turn_runner,
+        lock_seconds=settings.trip_turn_lock_seconds,
+        timeout_seconds=settings.agent_timeout_seconds,
+    )
+
+
+TripChatServiceDep = Annotated[TripChatService, Depends(get_trip_chat_service)]

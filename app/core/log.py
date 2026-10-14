@@ -44,7 +44,7 @@ def _make_formatter(settings: Settings, *, structured: bool) -> Callable[[dict[s
         {
             secret.get_secret_value()
             for secret in (
-                settings.amap_api_key, settings.deepseek_api_key,
+                settings.amap_api_key, settings.deepseek_api_key, settings.bocha_api_key,
                 settings.mysql_password, settings.auth_jwt_secret,
             )
             if secret.get_secret_value()
@@ -155,3 +155,6 @@ def setup_logging(settings: Settings) -> None:
         standard_logger.handlers.clear()
         standard_logger.propagate = True
         standard_logger.setLevel(logging.NOTSET)
+    # httpx 的请求日志包含带密钥的完整查询串（高德使用 key 参数），只保留警告以上。
+    for name in ("httpx", "httpcore"):
+        logging.getLogger(name).setLevel(logging.WARNING)

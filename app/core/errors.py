@@ -31,3 +31,38 @@ class InvalidToken(BusinessError):
 
     code = "INVALID_TOKEN"
     message = "令牌无效或已过期"
+
+
+class TripNotFound(BusinessError):
+    """对行程不存在与不属于当前用户使用相同的对外提示。"""
+
+    code = "TRIP_NOT_FOUND"
+    message = "行程不存在"
+
+
+class TripBusy(BusinessError):
+    """表示行程正被另一轮对话占用。"""
+
+    code = "TRIP_BUSY"
+    message = "上一条消息仍在处理，请稍后再试"
+
+
+class DraftVersionConflict(BusinessError):
+    """表示客户端提交的草稿版本不是行程当前版本。"""
+
+    code = "DRAFT_VERSION_CONFLICT"
+    message = "行程草稿已更新，请刷新后再确认"
+
+
+class TripNotConfirmable(BusinessError):
+    """表示行程尚未生成草稿，不能确认。"""
+
+    code = "TRIP_NOT_CONFIRMABLE"
+    message = "行程尚未生成草稿，暂不能确认"
+
+
+class TripTurnFailed(BusinessError):
+    """表示本轮规划执行失败或超时，未写入任何结果。"""
+
+    code = "TRIP_TURN_FAILED"
+    message = "行程规划服务暂时不可用，请稍后重试"

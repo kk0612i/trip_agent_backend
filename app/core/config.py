@@ -39,6 +39,12 @@ class Settings(BaseSettings):
         default="https://restapi.amap.com/v3", description="高德地图 API 地址"
     )
     amap_timeout_seconds: float = Field(default=10, gt=0, description="高德请求超时秒数")
+    amap_max_concurrency: int = Field(default=3, gt=0, le=20, description="高德请求最大并发数")
+    amap_cache_ttl_seconds: int = Field(default=3600, ge=0, description="高德查询结果进程内缓存秒数")
+
+    bocha_api_key: SecretStr = Field(default=SecretStr(""), description="博查搜索 API 密钥，为空时关闭资料查询")
+    bocha_base_url: HttpUrl = Field(default="https://api.bochaai.com/v1", description="博查搜索 API 地址")
+    bocha_timeout_seconds: float = Field(default=15, gt=0, description="博查请求超时秒数")
 
     deepseek_api_key: SecretStr = Field(default=SecretStr(""), description="DeepSeek API 密钥")
     deepseek_base_url: HttpUrl = Field(
@@ -49,6 +55,9 @@ class Settings(BaseSettings):
     deepseek_max_tokens: int = Field(default=4096, gt=0, description="模型最大输出 token 数")
     deepseek_timeout_seconds: float = Field(default=60, gt=0, description="模型请求超时秒数")
     deepseek_max_retries: int = Field(default=2, ge=0, description="模型请求最大重试次数")
+    deepseek_thinking_enabled: bool = Field(
+        default=False, description="是否开启思考模式；结构化输出需要强制工具调用，默认关闭",
+    )
 
     mysql_host: str = Field(default="127.0.0.1", min_length=1, description="MySQL 主机地址")
     mysql_port: int = Field(default=3306, ge=1, le=65535, description="MySQL 服务端口")
@@ -83,6 +92,8 @@ class Settings(BaseSettings):
     agent_timeout_seconds: float = Field(default=120, gt=0, description="单轮 Agent 执行期限秒数")
     agent_recursion_limit: int = Field(default=30, gt=0, description="单轮图执行步骤上限")
     agent_max_tool_calls: int = Field(default=10, gt=0, description="单轮工具调用次数上限")
+    trip_solver_time_limit_seconds: float = Field(default=10, gt=0, le=60, description="单次 CP-SAT 求解秒数上限")
+    trip_turn_lock_seconds: int = Field(default=300, gt=0, description="单轮对话占用行程的租约秒数")
 
     @field_validator("log_level", mode="before")
     @classmethod

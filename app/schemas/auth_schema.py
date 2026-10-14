@@ -85,12 +85,17 @@ class FieldError(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """定义认证接口的统一错误响应。"""
+    """定义认证及行程接口共用的统一错误响应。"""
 
     code: Literal[
         "EMAIL_ALREADY_EXISTS",
         "INVALID_CREDENTIALS",
         "INVALID_TOKEN",
+        "TRIP_NOT_FOUND",
+        "TRIP_BUSY",
+        "DRAFT_VERSION_CONFLICT",
+        "TRIP_NOT_CONFIRMABLE",
+        "TRIP_TURN_FAILED",
         "VALIDATION_ERROR",
         "INTERNAL_ERROR",
     ] = Field(description="错误代码")
