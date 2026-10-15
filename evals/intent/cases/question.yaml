@@ -1,0 +1,146 @@
+# 类别 question：资料问答。question 关键词为用户问题中必然保留的核心词。
+
+- id: question-001
+  category: question
+  scenario: drafting_hz3d
+  message: 雷峰塔门票多少钱？
+  expect:
+    kind: question
+    question: ["雷峰塔", "门票"]
+  note: 门票咨询，原样提炼问题
+
+- id: question-002
+  category: question
+  scenario: drafting_hz3d
+  message: 浙江省博物馆周一开门吗
+  expect:
+    kind: question
+    question: ["浙江省博物馆", "周一"]
+  note: 开放时间咨询；模型补全为“浙江省博物馆孤山馆区”也包含关键词
+
+- id: question-003
+  category: question
+  scenario: drafting_hz3d
+  message: 岳王庙是纪念谁的啊
+  expect:
+    kind: question
+    question: ["岳王庙"]
+  note: 景点介绍类问题；“纪念”可能被改写，只要求景点名
+
+- id: question-004
+  category: question
+  scenario: drafting_hz3d
+  message: 从断桥到岳王庙怎么过去比较方便？
+  expect:
+    kind: question
+    question: ["断桥", "岳王庙"]
+  note: 交通咨询，不是交通偏好设置，walk_only 应为空；模型写成“断桥残雪”也包含“断桥”
+
+- id: question-005
+  category: question
+  scenario: drafting_hz3d
+  message: 第二天会下雨吗，要不要带伞
+  expect:
+    kind: question
+    question: ["雨"]
+  note: 天气咨询；草稿里已有第 2 天小雨，但仍是问答而非修改，不应生成把户外换室内之类的 ops。“第二天”可能被换算成日期，只要求“雨”
+
+- id: question-006
+  category: question
+  scenario: drafting_hz3d
+  message: 我的行程第二天几点结束？
+  expect:
+    kind: question
+    question: ["结束"]
+  note: 关于当前草稿的问题，问答 Agent 可读草稿；不是 day_load 等修改。“第二天”可能被改写为“第2天”，只要求“结束”
+
+- id: question-007
+  category: question
+  scenario: drafting_hz3d
+  message: 西溪湿地一般要逛多久啊
+  expect:
+    kind: question
+    question: ["西溪湿地"]
+  note: 询问建议游玩时长，不是 set_duration（没有要求改成多久）
+
+- id: question-008
+  category: question
+  scenario: drafting_hz3d
+  message: 灵隐寺跟飞来峰是一张票吗
+  expect:
+    kind: question
+    question: ["灵隐寺", "飞来峰"]
+  note: 门票咨询，两个景点名都必须保留
+
+- id: question-009
+  category: question
+  scenario: confirmed_hz3d
+  message: 第三天早上几点到灵隐寺来着？
+  expect:
+    kind: question
+    question: ["灵隐寺"]
+  note: 已确认状态下仍可提问；resolve 在 confirmed 检查之前处理 question，因此应正常解析为问答
+
+- id: question-010
+  category: question
+  scenario: drafting_hz3d
+  message: 净慈寺离雷峰塔远吗，走路能到不？
+  expect:
+    kind: question
+    question: ["净慈寺", "雷峰塔"]
+  tags: [hard]
+  note: 含“走路”字样但只是询问距离，不是“只想走路”的交通要求，walk_only 必须为空
+
+- id: question-011
+  category: question
+  scenario: drafting_hz3d
+  message: 西溪湿地那边要提前预约吗？要的话就换成别的吧
+  expect:
+    kind: question
+    question: ["西溪湿地", "预约"]
+  tags: [hard]
+  note: 条件式修改依赖查询结果，理解阶段无法执行“如果……就换”，主意图是提问；不应直接生成 replace。条件部分可进 unhandled（不判分）
+
+- id: question-012
+  category: question
+  scenario: drafting_hz3d
+  message: 那它几点关门？
+  recent_turns:
+    - role: user
+      content: 下周二去杭州玩三天，喜欢历史和自然风景，灵隐寺一定要去
+    - role: assistant
+      content: 已为你生成杭州 3 天的行程草稿，第 1 天环湖北线，第 2 天南线，第 3 天灵隐和西溪。
+    - role: user
+      content: 灵隐寺门票多少钱
+    - role: assistant
+      content: 灵隐寺需要先买飞来峰景区门票 45 元，进寺另购香花券 30 元。
+  expect:
+    kind: question
+    question: ["灵隐寺"]
+  tags: [hard]
+  note: 指代消解：问答 Agent 只收到 question 文本、看不到对话历史，必须把“它”还原成灵隐寺，否则无法回答；提示词只说“原样提炼”，此处要求消解指代
+
+- id: question-013
+  category: question
+  scenario: collecting_empty
+  message: 杭州十月底冷不冷，要穿外套吗
+  expect:
+    kind: question
+    question: ["杭州"]
+  ignore: [city]
+  tags: [hard]
+  note: 尚无需求时的天气咨询。用户没明确说要去杭州，按规范 city 应为空，但 question 路由不会应用任何需求字段，填了也无副作用，故 city 不判分；不应填 start_date/days
+
+- id: question-014
+  category: question
+  scenario: drafting_hz3d
+  message: 雷峰塔门票多少？顺便把它挪到第三天
+  expect:
+    kind: modify
+    ops:
+      - op: move
+        item_ids: [D2-1]
+        to_day: 3
+  ignore: [question]
+  tags: [hard]
+  note: 提问 + 修改混合，提示词只规定“需求变化+修改取 modify”，没有规定“提问+修改”。标注 modify：kind=question 时 resolve 直接走问答、ops 被丢弃，用户的修改会静默丢失；而 modify 路由不回答问题（只是少答一句）。question 字段填不填都不判分（resolve 在 modify 路由下不使用它）

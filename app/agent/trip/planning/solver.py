@@ -29,6 +29,7 @@ from app.agent.trip.planning.rules import (
     LUNCH_WINDOW_END,
     rain_units,
 )
+from app.agent.trip.planning.tags import tags_match
 from app.schemas.trip_plan_schema import (
     DAY_WINDOW_MINUTES,
     SolvedDay,
@@ -103,8 +104,9 @@ def _precheck(inp: SolveInput, idx: dict[str, int], day_index: dict[int, int]) -
             if slot.poi_id not in idx:
                 return False
             continue
-        need = set(slot.tags)
-        matched = [pid for pid in set(inp.new_poi_ids) if pid in idx and need <= set(inp.pois[idx[pid]].tags)]
+        matched = [
+            pid for pid in set(inp.new_poi_ids) if pid in idx and tags_match(slot.tags, inp.pois[idx[pid]].tags)
+        ]
         if len(matched) < slot.count:
             return False
     return True
@@ -271,8 +273,7 @@ def _build(
         if slot.poi_id is not None:
             m.add(x[idx[slot.poi_id], k] == 1)
             continue
-        need = set(slot.tags)
-        matched = [idx[pid] for pid in new_ids if need <= set(pois[idx[pid]].tags)]
+        matched = [idx[pid] for pid in new_ids if tags_match(slot.tags, pois[idx[pid]].tags)]
         m.add(sum(x[i, k] for i in matched) >= slot.count)
 
     # ---------------- 目标 ----------------

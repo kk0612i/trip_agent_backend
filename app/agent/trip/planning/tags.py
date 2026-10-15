@@ -48,9 +48,28 @@ def item_tags(subtype: str, main_category: str, indoor: str) -> list[str]:
     return [subtype, main_category, "indoor" if indoor == "indoor" else "outdoor"]
 
 
+# 室内外维度的标签；其余标签都属于体验类型维度。
+_PLACE_TAGS = frozenset({"indoor", "outdoor"})
+
+
 def tags_match(required: list[str], tags: list[str]) -> bool:
-    """判断景点标签是否包含全部要求的标签。"""
-    return set(required).issubset(tags)
+    """判断景点标签是否满足要求。
+
+    同一维度内的多个标签是“任一满足”，不同维度之间是“同时满足”：
+    ["museum", "art_gallery"] 表示博物馆或美术馆；["outdoor", "temple"] 表示户外的寺庙。
+    用户列举多个类型时本意是其中之一，按“全部包含”匹配会得到不可能满足的条件。
+
+    Args:
+        required: 要求的标签，空表示不限。
+        tags: 景点标签，见 item_tags。
+
+    Returns:
+        是否满足。
+    """
+    kinds = [tag for tag in required if tag not in _PLACE_TAGS]
+    places = [tag for tag in required if tag in _PLACE_TAGS]
+    owned = set(tags)
+    return (not kinds or bool(owned.intersection(kinds))) and (not places or bool(owned.intersection(places)))
 
 
 # 规则兜底：按名称和高德分类中的关键词推断（细分体验，室内外，建议分钟数），按顺序优先匹配。

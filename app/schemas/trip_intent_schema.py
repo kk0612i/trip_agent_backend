@@ -8,25 +8,29 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.schemas.trip_plan_schema import MAX_TRIP_DAYS, DayLoad, DayPart, Pace, PreferenceTag, SelectorTag
+from app.schemas.trip_plan_schema import DayLoad, DayPart, Pace, PreferenceTag, SelectorTag
 
 IntentKind = Literal[
-    "chat", "question", "answer_pending", "plan_request", "modify", "switch_city", "out_of_scope",
+    "chat", "question", "answer_pending", "plan_request", "modify", "switch_city", "out_of_scope", "cancel",
 ]
+
+# 模型输出中“第几天”的上限。比行程天数上限宽，超出行程范围由 resolve 给出提示，
+# 避免用户说“第 8 天”时整条结构化输出校验失败。
+INTENT_DAY_MAX = 30
 
 
 class IntentPreference(BaseModel):
     """一条偏好。"""
 
     tag: PreferenceTag = Field(description="偏好标签，必须来自标签词表")
-    weight: Literal[1, 2] = Field(default=1, description="1 表示喜欢，2 表示非常喜欢")
+    weight: Literal[-1, 1, 2] = Field(default=1, description="1 表示喜欢，2 表示非常喜欢，-1 表示不喜欢、少安排")
 
 
 class IntentPoiMention(BaseModel):
     """用户提到的景点名称。"""
 
     name: str = Field(min_length=1, max_length=60, description="景点名称原文")
-    day: int | None = Field(default=None, ge=1, le=MAX_TRIP_DAYS, description="指定第几天，未提到为空")
+    day: int | None = Field(default=None, ge=1, le=INTENT_DAY_MAX, description="指定第几天，未提到为空")
 
 
 class IntentEditOp(BaseModel):
@@ -39,7 +43,7 @@ class IntentEditOp(BaseModel):
         default_factory=list, description="明确点名的草稿引用，如 D1-2；用于 remove/replace/move/swap/set_duration",
     )
     day: int | None = Field(
-        default=None, ge=1, le=MAX_TRIP_DAYS,
+        default=None, ge=1, le=INTENT_DAY_MAX,
         description="选择器的天（remove/replace/move），或 add/day_load 的目标天",
     )
     part: DayPart | None = Field(default=None, description="选择器的时段：上午或下午")
@@ -47,7 +51,7 @@ class IntentEditOp(BaseModel):
     poi_name: str | None = Field(default=None, max_length=60, description="add 的景点名，或 replace 指定替换成的景点名")
     target_tags: list[SelectorTag] = Field(default_factory=list, description="replace 时新景点需满足的标签")
     target_count: int | None = Field(default=None, ge=1, le=10, description="replace 后的数量，未提到为空")
-    to_day: int | None = Field(default=None, ge=1, le=MAX_TRIP_DAYS, description="move 的目标天")
+    to_day: int | None = Field(default=None, ge=1, le=INTENT_DAY_MAX, description="move 的目标天")
     minutes: int | None = Field(default=None, ge=10, le=600, description="set_duration 的分钟数")
     level: DayLoad | None = Field(default=None, description="day_load 的方向")
 
@@ -58,7 +62,7 @@ class TurnIntent(BaseModel):
     kind: IntentKind = Field(description="本轮主要意图")
     city: str | None = Field(default=None, max_length=30, description="目的地城市名，未提到为空")
     start_date: date | None = Field(default=None, description="出发日期，按提示中的日期表换算")
-    days: int | None = Field(default=None, ge=1, le=30, description="游玩天数")
+    days: int | None = Field(default=None, ge=1, le=INTENT_DAY_MAX, description="游玩天数")
     pace: Pace | None = Field(default=None, description="整体节奏")
     preferences: list[IntentPreference] = Field(default_factory=list, description="新增或调整的偏好")
     clear_preferences: bool = Field(default=False, description="是否清空原有偏好后再设置")

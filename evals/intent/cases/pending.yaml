@@ -1,0 +1,219 @@
+# 类别 pending：存在待回答问题时的理解。场景均按线上生成逻辑构造（见 scenarios.py）：
+#   drafting_hz3d_pending_infeasible：只步行，第 2 天加宋城排不下；1. 允许打车 2. 允许调整其他天的安排
+#   drafting_hz3d_pending_poi：上一轮“第一天加一个西湖博物馆”名称有歧义，要求说出完整名称，无选项
+#   collecting_pending_city：“想去吉林玩三天”；1. 吉林市 2. 长春市 3. 延边朝鲜族自治州
+
+# ---------- 无可行解：两个选项 ----------
+
+- id: pending-001
+  category: pending
+  scenario: drafting_hz3d_pending_infeasible
+  message: 那就打车吧
+  expect:
+    kind: answer_pending
+    pending_option: 1
+  ignore: [walk_only]
+  tags: [colloquial]
+  note: 按选项内容回答，对应选项 1“允许打车”。选项本身携带放宽后的需求和宋城新增操作；模型顺带填 walk_only=false 不影响下游，故 walk_only 不判分；但不应判成 plan_request（会丢掉宋城的新增）
+
+- id: pending-002
+  category: pending
+  scenario: drafting_hz3d_pending_infeasible
+  message: 别的天调一调也行
+  expect:
+    kind: answer_pending
+    pending_option: 2
+  tags: [colloquial]
+  note: 按选项内容回答，对应选项 2“允许调整其他天的安排”
+
+- id: pending-003
+  category: pending
+  scenario: drafting_hz3d_pending_infeasible
+  message: "2"
+  expect:
+    kind: answer_pending
+    pending_option: 2
+  tags: [fast_path]
+  note: 纯序号，fast_path_intent 直接返回，不调用模型；作为对照
+
+- id: pending-004
+  category: pending
+  scenario: drafting_hz3d_pending_infeasible
+  message: 选第一个。
+  expect:
+    kind: answer_pending
+    pending_option: 1
+  tags: [fast_path]
+  note: “选/第/个/句号”都在 _OPTION_PATTERN 允许范围内，走规则快速路径；作为对照
+
+- id: pending-005
+  category: pending
+  scenario: drafting_hz3d_pending_infeasible
+  message: 打车就算了，腿还能走，你把别的天挪一挪吧
+  expect:
+    kind: answer_pending
+    pending_option: 2
+  ignore: [walk_only]
+  tags: [hard]
+  note: 句中出现被否定的选项 1 关键词“打车”，真正的选择是选项 2。_answer_pending 只使用选项携带的需求，模型顺带填 walk_only 不影响结果，故不判分
+
+- id: pending-006
+  category: pending
+  scenario: drafting_hz3d_pending_infeasible
+  message: 确定
+  expect:
+    kind: chat
+    chat_reply: true
+  tags: [hard]
+  note: 有待回答问题时，“确定”没有说明选哪一项。规则快速路径已不再把它当成确认行程，交给模型：应为 chat 并在回复里请用户选择序号
+
+- id: pending-007
+  category: pending
+  scenario: drafting_hz3d_pending_infeasible
+  message: 那宋城放第三天吧
+  expect:
+    kind: modify
+    ops:
+      - op: add
+        poi_name: 宋城
+        day: 3
+  tags: [hard]
+  note: 不选任何选项，而是把新增目标改到第 3 天，应解析为新的 add 操作
+
+- id: pending-008
+  category: pending
+  scenario: drafting_hz3d_pending_infeasible
+  message: 第二天的净慈寺不要了，给宋城腾个位置
+  expect:
+    kind: modify
+    ops:
+      - op: remove
+        item_ids: [D2-2]
+        day: "*"
+      - op: add
+        poi_name: 宋城
+        day: 2
+  tags: [hard, multi_op]
+  note: 有待回答问题时提出新修改。“腾位置”表明仍要在第 2 天加宋城，新一轮修改不会继承上一轮的新增，所以要同时输出删除净慈寺（D2-2）和第 2 天新增宋城
+
+- id: pending-009
+  category: pending
+  scenario: drafting_hz3d_pending_infeasible
+  message: 算了，宋城不去了
+  expect:
+    kind: cancel
+  tags: [hard, cancel]
+  note: 放弃这次新增、保持原草稿→cancel。不能是 answer_pending，也不应产生 ops（宋城不在草稿中，remove 会报“没听清要调整哪个景点”）
+
+- id: pending-010
+  category: pending
+  scenario: drafting_hz3d_pending_infeasible
+  message: 打车的话大概要多少钱？
+  expect:
+    kind: question
+    question: ["打车"]
+  tags: [hard]
+  note: 提到选项内容但是在提问，不是选择；问答路由会保留待回答问题
+
+# ---------- 景点名歧义：自由回答，无选项 ----------
+
+- id: pending-011
+  category: pending
+  scenario: drafting_hz3d_pending_poi
+  message: 南山路那个
+  expect:
+    kind: modify
+    ops:
+      - op: add
+        poi_name: 杭州西湖博物馆南山路馆
+        day: 1
+  tags: [hard, reference]
+  note: 提示词的缺口。这个问题没有选项，不能用 answer_pending；正确意图是把上一轮的新增补全为完整名称并沿用“第一天”。提示词没有说明无选项问题该如何回答，模型可能判成 answer_pending 或只写“南山路”。名称宽松匹配，写“西湖博物馆南山路馆”也算对
+
+- id: pending-012
+  category: pending
+  scenario: drafting_hz3d_pending_poi
+  message: 西湖博物馆总馆
+  expect:
+    kind: modify
+    ops:
+      - op: add
+        poi_name: 西湖博物馆总馆
+        day: 1
+  tags: [reference]
+  note: 按要求说出完整名称，应接续上一轮的“第一天加”，输出第 1 天新增
+
+- id: pending-013
+  category: pending
+  scenario: drafting_hz3d_pending_poi
+  message: 都不是，换成中国丝绸博物馆吧
+  expect:
+    kind: modify
+    ops:
+      - op: add
+        poi_name: 中国丝绸博物馆
+        day: "*"
+  tags: [hard]
+  note: 拒绝全部候选，换成新景点。没说第几天：沿用上一轮的 day=1 或留空都可接受，故 day 写 *
+
+- id: pending-014
+  category: pending
+  scenario: drafting_hz3d_pending_poi
+  message: 那不加了
+  expect:
+    kind: cancel
+  tags: [hard, cancel]
+  note: 取消这次新增→cancel。不能输出 undo：新增并未执行，undo 会回滚用户上一次真实的修改
+
+- id: pending-015
+  category: pending
+  scenario: drafting_hz3d_pending_poi
+  message: 这几个哪个离断桥近一点？
+  expect:
+    kind: question
+    question: ["断桥"]
+  tags: [hard]
+  note: 针对候选的提问，不是回答；问答路由会保留待回答问题
+
+# ---------- 城市歧义：三个选项 ----------
+
+- id: pending-016
+  category: pending
+  scenario: collecting_pending_city
+  message: 长春
+  expect:
+    kind: answer_pending
+    pending_option: 2
+  ignore: [city]
+  note: 直接说出选项内容，对应选项 2“长春市”；选项已携带 days=3，不应判成 plan_request。选中选项后下游只用选项携带的需求，顺带填写 city 不影响结果，不判分
+
+- id: pending-017
+  category: pending
+  scenario: collecting_pending_city
+  message: "3"
+  expect:
+    kind: answer_pending
+    pending_option: 3
+  tags: [fast_path]
+  note: 纯序号，规则快速路径；作为对照
+
+- id: pending-018
+  category: pending
+  scenario: collecting_pending_city
+  message: 延边那边吧，想吃朝鲜族菜
+  expect:
+    kind: answer_pending
+    pending_option: 3
+  ignore: [city]
+  tags: [colloquial]
+  note: 用选项名称片段“延边”指代选项 3；后半句是闲聊补充，不应填偏好。选中选项后下游只用选项携带的需求，顺带填写 city 不影响结果，不判分
+
+- id: pending-019
+  category: pending
+  scenario: collecting_pending_city
+  message: 不去吉林了，改去大连
+  expect:
+    kind: plan_request
+    city: 大连
+  tags: [hard]
+  note: 拒绝全部选项并换城市。plan_request 与带城市的 switch_city 在 resolve 中处理相同，都算对。没有重新说天数，days 不应重复填写（已在需求中）

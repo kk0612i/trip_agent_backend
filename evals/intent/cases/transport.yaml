@@ -1,0 +1,98 @@
+# 交通：walk_only、max_walk_minutes。场景默认交通为“步行+打车，单段步行上限 40 分钟”。
+- id: transport-001
+  category: transport
+  scenario: collecting_city_only
+  message: 全程走路就行，不打车
+  expect:
+    kind: plan_request
+    walk_only: true
+  tags: [simple]
+  note: “只想走路/不打车”→walk_only=true（提示词原文）；没给分钟数，max_walk_minutes 为空
+
+- id: transport-002
+  category: transport
+  scenario: drafting_hz3d
+  message: 可以打车的，不用非得走路
+  expect:
+    kind: plan_request
+    walk_only: false
+  tags: [simple, drafting]
+  note: “可以打车”→walk_only=false；草稿状态下改交通是需求变化→plan_request
+
+- id: transport-003
+  category: transport
+  scenario: collecting_shanghai_partial
+  message: 每段路最多走15分钟，再远就打车
+  expect:
+    kind: plan_request
+    max_walk_minutes: 15
+  ignore: [walk_only]
+  tags: [colloquial]
+  note: “每段最多走 15 分钟”→max_walk_minutes=15。“再远就打车”隐含允许打车，填 walk_only=false 或留空都正确（当前本就是步行+打车），故 walk_only 不判分
+
+- id: transport-004
+  category: transport
+  scenario: drafting_hz3d
+  message: 单程步行别超过半小时
+  expect:
+    kind: plan_request
+    max_walk_minutes: 30
+  tags: [hard, unit_conversion, drafting]
+  note: “半小时”需换算为 30 分钟；“单程”即单段
+
+- id: transport-005
+  category: transport
+  scenario: collecting_empty
+  message: 去厦门玩3天，我们不打车，全靠腿，每次最多走二十分钟
+  expect:
+    kind: plan_request
+    city: 厦门
+    days: 3
+    walk_only: true
+    max_walk_minutes: 20
+  tags: [colloquial]
+  note: “不打车，全靠腿”→walk_only=true；“二十分钟”→20；两个交通字段同时填写
+
+- id: transport-006
+  category: transport
+  scenario: collecting_city_only
+  message: 只走路吧……算了还是可以打车，不过走路最多一刻钟
+  expect:
+    kind: plan_request
+    walk_only: false
+    max_walk_minutes: 15
+  tags: [hard, correction, unit_conversion]
+  note: 自我修正，以“还是可以打车”为准→walk_only=false；“一刻钟”=15 分钟
+
+- id: transport-007
+  category: transport
+  scenario: collecting_city_only
+  message: 不想走太多路
+  expect:
+    kind: plan_request
+    max_walk_minutes: 20
+  ignore: [pace]
+  tags: [hard, vague]
+  note: 产品约定：“不想走太多路”且没给分钟数→max_walk_minutes=20；不是“只步行”，walk_only 应为空。理解成节奏放松（relaxed）也有道理，pace 不判分
+
+- id: transport-008
+  category: transport
+  scenario: drafting_hz3d
+  message: 能打车就打车吧，我们懒得走
+  expect:
+    kind: plan_request
+    walk_only: false
+  ignore: [max_walk_minutes]
+  tags: [hard, colloquial]
+  note: “能打车就打车”→walk_only=false。“懒得走”接近“不想走太多路”，按约定填 max_walk_minutes=20 或留空都可以，故不判分
+
+- id: transport-009
+  category: transport
+  scenario: collecting_city_only
+  message: 我腿脚不太好，尽量少走点路
+  expect:
+    kind: plan_request
+    max_walk_minutes: 20
+  ignore: [pace, walk_only]
+  tags: [hard, vague]
+  note: “少走点路”与“不想走太多路”同义，按约定 max_walk_minutes=20；是否顺带放慢节奏、是否写 walk_only=false 都不判分

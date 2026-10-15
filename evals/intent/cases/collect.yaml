@@ -1,0 +1,190 @@
+# 收集需求：城市、天数、节奏、必去/不去。今天 2026-10-15 周四。
+- id: collect-001
+  category: collect
+  scenario: collecting_empty
+  message: 我想去成都玩4天
+  expect:
+    kind: plan_request
+    city: 成都
+    days: 4
+  tags: [simple]
+  note: 只给了城市和天数，日期未提→start_date 为空；没有偏好、节奏，不得补默认值
+
+- id: collect-002
+  category: collect
+  scenario: collecting_empty
+  message: 去重庆。
+  expect:
+    kind: plan_request
+    city: 重庆
+  tags: [simple]
+  note: 只给城市；空会话里设置城市属于“提供需求”→plan_request，不是 switch_city（原本没有城市可换）
+
+- id: collect-003
+  category: collect
+  scenario: collecting_empty
+  message: 10月24号去南京，玩三天，节奏紧凑点。中山陵一定要去，夫子庙就算了，人太多
+  expect:
+    kind: plan_request
+    city: 南京
+    start_date: 2026-10-24
+    days: 3
+    pace: packed
+    must_visit: [中山陵]
+    avoid: [夫子庙]
+  tags: [full_info]
+  note: 一次给全信息。10月24号=2026-10-24（周六）；“紧凑点”→packed；中山陵是具体景点，“一定要去”进 must_visit 而非偏好 weight=2；“夫子庙就算了”→avoid；“人太多”只是理由，不是额外要求
+
+- id: collect-004
+  category: collect
+  scenario: collecting_city_only
+  message: 3天吧，日子还没定
+  expect:
+    kind: plan_request
+    days: 3
+  tags: [colloquial, answer_free_question]
+  note: 回答“哪天出发、玩几天”的自由追问（没有选项）→plan_request 而非 answer_pending；明确说日期未定，start_date 必须为空；不重复填写场景里已有的城市杭州
+
+- id: collect-005
+  category: collect
+  scenario: collecting_city_only
+  message: 就一天，当天来回，想多跑几个地方
+  expect:
+    kind: plan_request
+    days: 1
+    pace: packed
+  tags: [colloquial]
+  note: “就一天/当天来回”→days=1；“多跑几个地方”对应提示词“多去几个→packed”，作用于整个行程；未说出发日期
+
+- id: collect-006
+  category: collect
+  scenario: collecting_city_only
+  recent_turns:
+    - {role: user, content: 我想去杭州玩}
+    - {role: assistant, content: 好的，去杭州。请问计划哪天出发、玩几天？}
+    - {role: user, content: 还没想好，杭州有什么必去的？}
+    - {role: assistant, content: 西湖、灵隐寺、西溪湿地都很受欢迎。请问计划哪天出发、玩几天？}
+  message: 那灵隐寺放第二天，一共玩三天
+  expect:
+    kind: plan_request
+    days: 3
+    must_visit:
+      - {name: 灵隐寺, day: 2}
+  tags: [multi_turn, must_visit_day]
+  note: 分多轮补充。首次规划前“第二天去灵隐寺”→must_visit 并带 day=2（提示词原例）；助手上一轮提到的西湖、西溪湿地只是介绍，用户没要求，不得写入 must_visit
+
+- id: collect-007
+  category: collect
+  scenario: collecting_city_only
+  message: 第一天先在西湖边转转，第三天去西溪湿地，总共三天
+  expect:
+    kind: plan_request
+    days: 3
+    must_visit:
+      - {name: 西湖, day: 1}
+      - {name: 西溪湿地, day: 3}
+  tags: [must_visit_day]
+  note: 两个带 day 的必去；“西湖边转转”指向具体景点西湖（判分时名称宽松匹配，“西湖风景名胜区”也算对）
+
+- id: collect-008
+  category: collect
+  scenario: collecting_city_only
+  message: 第二天去灵隐寺……算了，灵隐寺还是放第一天吧，第二天留给西溪
+  expect:
+    kind: plan_request
+    must_visit:
+      - {name: 灵隐寺, day: 1}
+      - {name: 西溪, day: 2}
+  tags: [hard, correction, must_visit_day]
+  note: 自我修正，以最后说法为准：灵隐寺 day=1（不能同时输出 day=2 的灵隐寺）；“第二天留给西溪”→西溪（湿地）day=2；没有说天数
+
+- id: collect-009
+  category: collect
+  scenario: collecting_city_only
+  message: 雷峰塔不用排了，之前去过；节奏正常就行
+  expect:
+    kind: plan_request
+    avoid: [雷峰塔]
+    pace: normal
+  tags: [negation]
+  note: “不用排了”→avoid；“正常就行”→normal。虽然 normal 是默认值，但用户明确表达了，应填写
+
+- id: collect-010
+  category: collect
+  scenario: collecting_city_only
+  message: 灵隐寺不去，另外人挤人的地方我都不想去
+  expect:
+    kind: plan_request
+    avoid: [灵隐寺]
+    unhandled: true
+  tags: [hard, negation]
+  note: 灵隐寺是具体景点→avoid；“人挤人的地方”不是景点名也不是标签，无法映射，按提示词写入 unhandled，不能编造 avoid 条目（如“西湖”）或改节奏
+
+- id: collect-011
+  category: collect
+  scenario: collecting_shanghai_partial
+  message: 下周一走。外滩必须安排上
+  expect:
+    kind: plan_request
+    start_date: 2026-10-19
+    must_visit: [外滩]
+  tags: [relative_date, answer_free_question]
+  note: 回答“哪天出发”的自由追问；今天 10-15 周四，下周一=2026-10-19；外滩→must_visit（无 day）；不重复场景已有的上海/2天/relaxed/museum
+
+- id: collect-012
+  category: collect
+  scenario: collecting_shanghai_partial
+  message: 不对，是3天不是两天，周日出发
+  expect:
+    kind: plan_request
+    days: 3
+    start_date: 2026-10-18
+  tags: [hard, correction, relative_date]
+  note: 修正之前说的 2 天→days=3；“周日”无修饰，取最近的即将到来的周日=2026-10-18（日期表里周四之后第一个周日）
+
+- id: collect-013
+  category: collect
+  scenario: collecting_shanghai_partial
+  message: 迪士尼就不去了，排队太累
+  expect:
+    kind: plan_request
+    avoid: [迪士尼]
+  tags: [negation, colloquial]
+  note: 迪士尼→avoid（宽松匹配，“上海迪士尼乐园”也算对）；没有回答日期，start_date 为空
+
+- id: collect-014
+  category: collect
+  scenario: collecting_empty
+  message: 带爸妈去苏州，老人腿脚不太好别排太满，四天左右吧，拙政园必须去
+  expect:
+    kind: plan_request
+    city: 苏州
+    days: 4
+    pace: relaxed
+    must_visit: [拙政园]
+  ignore: [max_walk_minutes]
+  tags: [hard, colloquial]
+  note: “别排太满”→relaxed；“四天左右”取 4；拙政园→must_visit。“腿脚不太好”不能推断出 walk_only；是否按“少走路”约定填 max_walk_minutes=20 有歧义（对老人偏保守、无害），不判分（unhandled 不判分）
+
+- id: collect-015
+  category: collect
+  scenario: collecting_empty
+  message: 五天四晚的厦门，鼓浪屿肯定要去，曾厝垵无所谓
+  expect:
+    kind: plan_request
+    city: 厦门
+    days: 5
+    must_visit: [鼓浪屿]
+  tags: [hard, colloquial]
+  note: “五天四晚”→游玩 5 天；鼓浪屿→must_visit；“曾厝垵无所谓”既不是必去也不是不去，不能写进 avoid 或 must_visit
+
+- id: collect-016
+  category: collect
+  scenario: collecting_shanghai_partial
+  message: 节奏还是正常点吧，别太慢了，博物馆也别排太多
+  expect:
+    kind: plan_request
+    pace: normal
+  ignore: [preferences]
+  tags: [hard, correction]
+  note: 修正之前的“慢一点”→pace=normal。“博物馆别排太多”是在降低已有偏好强度，但偏好只有 1/2 两档、没有删除/降权字段，模型可能把 museum 改为 1 或写入 unhandled，规范未定义，故 preferences 不判分

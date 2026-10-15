@@ -1,0 +1,84 @@
+# 换城市：collecting 可换；drafting 时城市已锁定，但理解模块仍应识别为 switch_city，由下游拒绝。
+- id: switch_city-001
+  category: switch_city
+  scenario: collecting_city_only
+  message: 算了不去杭州了，改去苏州
+  expect:
+    kind: switch_city
+    city: 苏州
+  tags: [simple]
+  note: 当前城市杭州，明确要求改去苏州→switch_city，city=苏州
+
+- id: switch_city-002
+  category: switch_city
+  scenario: collecting_shanghai_partial
+  message: 换成南京吧，其他不变
+  expect:
+    kind: switch_city
+    city: 南京
+  tags: [simple]
+  note: 只换城市；“其他不变”不应把 2 天、relaxed、museum 重复写进来
+
+- id: switch_city-003
+  category: switch_city
+  scenario: drafting_hz3d
+  message: 能不能换成去黄山？
+  expect:
+    kind: switch_city
+    city: 黄山
+  tags: [drafting]
+  note: 草稿状态下要求换城市，理解层仍标 switch_city 并填 city，由 resolver 提示城市已锁定；不是 question（不是在问资料）
+
+- id: switch_city-004
+  category: switch_city
+  scenario: drafting_hz3d
+  message: 杭州这份挺好，不过朋友说绍兴更有味道，要不这次改去绍兴？
+  expect:
+    kind: switch_city
+    city: 绍兴
+  tags: [hard, colloquial, drafting]
+  note: 先夸后转折，用商量口吻提出改去绍兴→switch_city；不是 chat
+
+- id: switch_city-005
+  category: switch_city
+  scenario: collecting_city_only
+  message: 杭州去过好几回了，这次想换个地方，扬州怎么样，就去扬州吧
+  expect:
+    kind: switch_city
+    city: 扬州
+  tags: [hard, colloquial]
+  note: “扬州怎么样”像提问，但随后“就去扬州吧”明确了决定→switch_city 而非 question；city 为扬州而不是杭州
+
+- id: switch_city-006
+  category: switch_city
+  scenario: collecting_shanghai_partial
+  message: 上海人太多了，去杭州吧，还是玩两天，下周一出发
+  expect:
+    kind: [switch_city, plan_request]
+    city: 杭州
+    days: 2
+    start_date: 2026-10-19
+  tags: [hard, relative_date]
+  note: 换城市同时补充日期：主标注 switch_city；提示词中 plan_request 也覆盖“修改城市”，下游两者处理一致，故也接受。“还是玩两天”是本条消息明确说出的→days=2；下周一=2026-10-19
+
+- id: switch_city-007
+  category: switch_city
+  scenario: collecting_empty
+  message: 我想去杭州玩……不对，是宁波
+  expect:
+    kind: [plan_request, switch_city]
+    city: 宁波
+  tags: [hard, correction]
+  note: 空会话中原本没有城市，属于首次提供城市→主标注 plan_request；句内改口，switch_city 也可接受（下游同样走设置城市）。city 以修正后的宁波为准
+
+- id: switch_city-008
+  category: switch_city
+  scenario: collecting_city_only
+  message: 我从上海出发去杭州，周六走，玩两天
+  expect:
+    kind: plan_request
+    city: 杭州
+    start_date: 2026-10-17
+    days: 2
+  tags: [hard, negative]
+  note: 反例：上海是出发地不是目的地，不能当成换城市；目的地杭州是本条消息明确说出的，city=杭州（与当前一致，下游不会触发更换）；周六=2026-10-17

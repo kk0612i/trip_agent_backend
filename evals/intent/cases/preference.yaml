@@ -1,0 +1,236 @@
+# 偏好：标签映射、权重、清空重设。标签必须来自 MainCategory / Subtype。
+- id: preference-001
+  category: preference
+  scenario: collecting_empty
+  message: 去苏州玩两天，想逛逛古镇
+  expect:
+    kind: plan_request
+    city: 苏州
+    days: 2
+    preferences: {ancient_town: 1}
+  tags: [simple]
+  note: “古镇”→ancient_town（古镇古村）；普通喜欢 weight=1
+
+- id: preference-002
+  category: preference
+  scenario: collecting_city_only
+  message: 我特别喜欢逛博物馆
+  expect:
+    kind: plan_request
+    preferences: {museum: 2}
+  tags: [simple, weight]
+  note: “特别喜欢”→weight=2（提示词原文）
+
+- id: preference-003
+  category: preference
+  scenario: collecting_city_only
+  message: 看山看水就行，不用太多人文的
+  expect:
+    kind: plan_request
+    preferences:
+      - {mountain: 1, lake_river: 1}
+      - {nature: 1}
+      - {mountain: 1, lake_river: 1, culture_art: -1}
+      - {nature: 1, culture_art: -1}
+      - {mountain: 1, lake_river: 1, culture_art: -1, history: -1}
+      - {nature: 1, culture_art: -1, history: -1}
+  tags: [colloquial, negation]
+  note: “看山”→mountain、“看水”→lake_river 用细分标签更精确；只输出主体验类 nature 也合理。“不用太多人文的”是少安排，可写 culture_art（或再加 history）为 -1，也可不写；“就行”不是强调，权重为 1
+
+- id: preference-004
+  category: preference
+  scenario: collecting_shanghai_partial
+  message: 美术馆也挺喜欢的，可以加上
+  expect:
+    kind: plan_request
+    preferences: {art_gallery: 1}
+  tags: [simple, incremental]
+  note: 新增偏好 art_gallery=1；不得重复写场景已有的 museum=2，也不应 clear_preferences（是“加上”不是“只看”）
+
+- id: preference-005
+  category: preference
+  scenario: collecting_shanghai_partial
+  message: 博物馆不看了，换成只逛老街和弄堂
+  expect:
+    kind: plan_request
+    clear_preferences: true
+    preferences: {historic_street: 1}
+  tags: [hard, negation, clear]
+  note: “换成只…”→clear_preferences=true（顺带去掉 museum）；老街、弄堂→historic_street（历史街区）。不能把“博物馆”写进 avoid（avoid 只放景点名）
+
+- id: preference-006
+  category: preference
+  scenario: drafting_hz3d
+  message: 换成只看博物馆和美术馆吧
+  expect:
+    kind: plan_request
+    clear_preferences: true
+    preferences: {museum: 1, art_gallery: 1}
+  tags: [clear, drafting]
+  note: 草稿状态下改整体偏好是需求变化→plan_request，而不是对具体景点的 modify；“换成只看”→clear_preferences=true（提示词原例）
+
+- id: preference-007
+  category: preference
+  scenario: drafting_hz3d
+  message: 偏好改一下：只要自然风光，历史类的就不要了
+  expect:
+    kind: plan_request
+    clear_preferences: true
+    preferences: [{nature: 1}, {nature: 1, history: -1}]
+  tags: [hard, clear, negation, drafting]
+  note: “只要自然风光”→clear + nature（主类，用户说的就是大类“自然风光”）；“历史类的不要了”由清空实现，额外写 history=-1 也可接受（下游效果相近）；不应生成 remove ops，也不应写 avoid
+
+- id: preference-008
+  category: preference
+  scenario: drafting_hz3d
+  message: 我对寺庙挺感兴趣的
+  expect:
+    kind: plan_request
+    preferences: {temple|religion: 1}
+  tags: [drafting]
+  note: 草稿状态下表达偏好→plan_request；“寺庙”可映射 temple 或主类 religion，两者都算对；没有点名景点，不应出 ops
+
+- id: preference-009
+  category: preference
+  scenario: collecting_empty
+  message: 想去青岛看海，顺便逛逛那些老建筑
+  expect:
+    kind: plan_request
+    city: 青岛
+    preferences: {seaside: 1, ancient_architecture|historic_street|history: 1}
+  tags: [colloquial]
+  note: 看海→seaside；“老建筑”在青岛多指近代老街区/老洋房，可映射 ancient_architecture、historic_street 或主类 history，均可接受
+
+- id: preference-010
+  category: preference
+  scenario: collecting_city_only
+  message: 喜欢园林，植物园那种也不错
+  expect:
+    kind: plan_request
+    preferences: {garden: 1, botanical_garden: 1}
+  tags: [simple]
+  note: 园林→garden，植物园→botanical_garden，均为普通喜欢
+
+- id: preference-011
+  category: preference
+  scenario: collecting_city_only
+  message: 历史类的我特别感兴趣，自然风景也还行吧
+  expect:
+    kind: plan_request
+    preferences: {history: 2, nature: 1}
+  tags: [hard, weight]
+  note: 同一句里不同权重：“特别感兴趣”→history=2；“也还行”→nature=1
+
+- id: preference-012
+  category: preference
+  scenario: collecting_city_only
+  message: 带娃去的，想加点动物园、游乐园之类的
+  expect:
+    kind: plan_request
+    preferences: {zoo_aquarium: 1, theme_park|entertainment: 1}
+  tags: [colloquial]
+  note: 动物园→zoo_aquarium；游乐园→theme_park 或其主类 entertainment；“带娃”本身不是偏好
+
+- id: preference-013
+  category: preference
+  scenario: collecting_shanghai_partial
+  message: 其实我最喜欢的是看展，各种展览都行
+  expect:
+    kind: plan_request
+    preferences: {exhibition|art_gallery: 2}
+  tags: [hard, weight]
+  note: “最喜欢”程度等同“特别喜欢”→weight=2；“看展/展览”→exhibition，口语里“看展”常指艺术展，art_gallery 也接受。不重复 museum
+
+- id: preference-014
+  category: preference
+  scenario: collecting_city_only
+  message: 不太喜欢寺庙，其他都行
+  expect:
+    kind: plan_request
+    preferences: {"temple|religion": -1}
+  tags: [hard, negation]
+  note: 不喜欢某类景点→该类标签 weight=-1（寺庙→temple 或主类 religion）。avoid 只放具体景点名，不能写“寺庙”；“其他都行”不加偏好
+
+- id: preference-015
+  category: preference
+  scenario: collecting_empty
+  message: 去北京玩4天，故宫、天坛这种皇家古建筑我超爱
+  expect:
+    kind: plan_request
+    city: 北京
+    days: 4
+    preferences: {ancient_architecture|history: 2}
+  ignore: [must_visit]
+  tags: [hard, weight]
+  note: “超爱”→weight=2；皇家古建筑→ancient_architecture（或主类 history）。故宫、天坛是举例说明类型，是否同时作为必去有歧义，must_visit 不判分
+
+- id: preference-016
+  category: preference
+  scenario: collecting_city_only
+  message: 喜欢人文一点的，像博物馆、名人故居这些
+  expect:
+    kind: plan_request
+    preferences: {museum: 1, former_residence: 1}
+  tags: [hard]
+  note: 用户用举例说明“人文”，按点名的细分标签标注 museum、former_residence；再额外输出 culture_art 会判为多填（规范未说明举例和概括同时出现时是否要输出主类，见报告）
+
+- id: preference-017
+  category: preference
+  scenario: collecting_city_only
+  message: 随便逛逛就行，没什么特别想去的
+  expect:
+    kind: [plan_request, chat]
+  tags: [vague]
+  note: 没有偏好也没有回答日期天数，“无所谓”类表述不填任何字段；plan_request（下游继续追问）或 chat 都可以，关键是不编造偏好
+
+- id: preference-018
+  category: preference
+  scenario: collecting_empty
+  message: 想去杭州玩几天，看看风景
+  expect:
+    kind: plan_request
+    city: 杭州
+    preferences: {nature: 1}
+  tags: [vague]
+  note: “看看风景”是宽泛的大类→主类 nature；“几天”没有具体数字，days 留空
+
+- id: preference-019
+  category: preference
+  scenario: drafting_hz3d
+  message: 之前说的偏好都不算了，就挑评分高的经典景点
+  expect:
+    kind: plan_request
+    clear_preferences: true
+  tags: [hard, clear, drafting]
+  note: 清空偏好；“评分高的经典景点”没有对应标签，不应编造偏好（可写入 unhandled，未标注不判分），也不应生成 ops
+
+- id: preference-020
+  category: preference
+  scenario: collecting_shanghai_partial
+  message: 不要只看博物馆了，换成逛逛城市地标、商业街这些
+  expect:
+    kind: plan_request
+    clear_preferences: true
+    preferences: {landmark_building: 1, commercial_street: 1}
+  tags: [hard, clear]
+  note: “换成”表示替换原偏好→clear + 新偏好；按举例的细分标签标注，不额外加主类 urban
+
+- id: preference-021
+  category: preference
+  scenario: drafting_hz3d
+  message: 我不太喜欢爬山
+  expect:
+    kind: plan_request
+    preferences: {mountain: -1}
+  tags: [negation]
+  note: 不喜欢某类→weight=-1；草稿里没有山，也不应生成 remove/replace ops；kind 写 modify 下游等价
+
+- id: preference-022
+  category: preference
+  scenario: drafting_hz3d
+  message: 博物馆少安排点
+  expect:
+    kind: plan_request
+    preferences: {museum|culture_art: -1}
+  tags: [hard, negation]
+  note: “少安排”→weight=-1（schema 描述“-1 表示不喜欢、少安排”），由打分降低博物馆的优先级；不应把草稿里的博物馆全部 remove/replace

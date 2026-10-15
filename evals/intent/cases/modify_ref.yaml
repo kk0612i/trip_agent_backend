@@ -1,0 +1,292 @@
+# 修改：点名景点（引用编号）。场景均为 drafting_hz3d，引用编号见 evals/intent/scenarios.py 的 HZ3D_LAYOUT。
+# 约定：点名景点时 item_ids 严格标注；select_items 在 item_ids 非空时忽略 day/part/tags，
+# move 也会把 day 置空，因此这些 op 的 day（必要时 part）写 "*"。add 的 day 决定目标天，严格标注。
+
+# ---------------- 简单 ----------------
+- id: modify_ref-001
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 雷峰塔不去了
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, item_ids: [D2-1], day: "*"}
+  note: 雷峰塔=D2-1；点名景点→item_ids；day 是否顺带填写不影响解析。avoid 应为空（规范以草稿修改表达）
+
+- id: modify_ref-002
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 把净慈寺换成六和塔
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, item_ids: [D2-2], day: "*", poi_name: 六和塔}
+  note: 净慈寺=D2-2；替换成指定景点填 poi_name，target_tags 应为空
+
+- id: modify_ref-003
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 第一天加一个河坊街
+  expect:
+    kind: modify
+    ops:
+      - {op: add, poi_name: 河坊街, day: 1}
+  note: 河坊街不在草稿中→add；指定第一天→day=1（add 的 day 决定目标天，严格标注）
+
+- id: modify_ref-004
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 西溪湿地挪到第二天吧
+  expect:
+    kind: modify
+    ops:
+      - {op: move, item_ids: [D3-2], day: "*", to_day: 2}
+  note: 西溪湿地=D3-2；move 填 item_ids 和 to_day；item_ids 非空时下游把 day 置空，day 通配
+
+- id: modify_ref-005
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 断桥残雪和花港观鱼换一下
+  expect:
+    kind: modify
+    ops:
+      - {op: swap, item_ids: [D1-1, D2-3], day: "*"}
+  note: 断桥残雪=D1-1（第1天）、花港观鱼=D2-3（第2天），跨天交换→swap，item_ids 恰好两个
+
+- id: modify_ref-006
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 灵隐寺多玩一个小时
+  expect:
+    kind: modify
+    ops:
+      - {op: set_duration, item_ids: [D3-1], day: "*", minutes: 240}
+  note: 灵隐寺=D3-1，当前 09:00-12:00 共 180 分钟，多一小时→总时长 240（minutes 是总分钟数不是增量）
+
+- id: modify_ref-007
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: D2-4 删掉
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, item_ids: [D2-4], day: "*"}
+  note: 用户直接说引用编号 D2-4（中国茶叶博物馆），原样写入 item_ids
+
+- id: modify_ref-008
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 帮我加个宋城
+  expect:
+    kind: modify
+    ops:
+      - {op: add, poi_name: 宋城}
+  note: 未指定哪天→day 必须为空，由下游 nearest_day 选最近的一天；模型自行猜一天会改变结果，所以不通配
+
+- id: modify_ref-009
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 撤销
+  recent_turns:
+    - {role: user, content: 下周二去杭州玩三天，喜欢历史和自然风景，灵隐寺一定要去}
+    - {role: assistant, content: 已为你生成杭州 3 天的行程草稿，第 1 天环湖北线，第 2 天南线，第 3 天灵隐和西溪。}
+    - {role: user, content: 第二天下午加一个中国茶叶博物馆}
+    - {role: assistant, content: 已在第 2 天 15:00 加入中国茶叶博物馆，其他安排不变。}
+  expect:
+    kind: modify
+    ops:
+      - {op: undo}
+  note: 精确命中 _UNDO_WORDS，走 fast_path_intent 规则快速路径，不经过模型；作为快速路径的对照用例。undo 其他字段应为空
+
+# ---------------- 口语 / 别名 / 错别字 / 指代 ----------------
+- id: modify_ref-010
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 岳庙就算了吧，以前去过好几次了
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, item_ids: [D1-4], day: "*"}
+  tags: [colloquial, reference]
+  note: “岳庙”是岳王庙的通行简称=D1-4；“就算了吧”=删除；后半句是理由，不产生其他字段
+
+- id: modify_ref-011
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 雷锋塔换成六和塔
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, item_ids: [D2-1], day: "*", poi_name: 六和塔}
+  tags: [colloquial, reference]
+  note: “雷锋塔”是雷峰塔的常见错别字=D2-1；poi_name 判分宽松匹配
+
+- id: modify_ref-012
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 茶博挪到第一天去
+  expect:
+    kind: modify
+    ops:
+      - {op: move, item_ids: [D2-4], day: "*", to_day: 1}
+  tags: [colloquial, reference]
+  note: “茶博”=中国茶叶博物馆 D2-4；不能映射成浙博 D1-3
+
+- id: modify_ref-013
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 西溪待四个钟头太累了，少待一小时
+  expect:
+    kind: modify
+    ops:
+      - {op: set_duration, item_ids: [D3-2], day: "*", minutes: 180}
+  tags: [colloquial, reference]
+  note: 西溪=西溪湿地 D3-2，当前 13:30-17:30 共 240 分钟，少一小时→180
+
+- id: modify_ref-014
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 灵隐寺后面那个删掉吧，太远了
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, item_ids: [D3-2], day: "*"}
+  tags: [colloquial, reference]
+  note: 相对指代：灵隐寺 D3-1 之后的是 D3-2 西溪湿地；不能误删灵隐寺本身
+
+- id: modify_ref-015
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 第一天最后一个换成园林吧
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, item_ids: [D1-4], day: "*", target_tags: [garden]}
+  tags: [colloquial, reference]
+  note: 相对指代：第一天最后一个=D1-4 岳王庙；“最后一个”无法用选择器表达，必须给 item_ids；园林=garden
+
+- id: modify_ref-016
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 第二天不是下雨嘛，花港观鱼就别去了，换个室内的
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, item_ids: [D2-3], day: "*", target_tags: [indoor]}
+  tags: [colloquial, reference, weather]
+  note: 点名花港观鱼=D2-3，虽提到第二天下雨，但对象是具体景点→item_ids 而非 day+outdoor 选择器（选择器会连带雷峰塔、净慈寺）；“别去了，换个室内的”是替换而非删除
+
+- id: modify_ref-017
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 把刚才的修改撤回吧
+  recent_turns:
+    - {role: user, content: 下周二去杭州玩三天，喜欢历史和自然风景，灵隐寺一定要去}
+    - {role: assistant, content: 已为你生成杭州 3 天的行程草稿，第 1 天环湖北线，第 2 天南线，第 3 天灵隐和西溪。}
+    - {role: user, content: 第二天下午加一个中国茶叶博物馆}
+    - {role: assistant, content: 已在第 2 天 15:00 加入中国茶叶博物馆，其他安排不变。}
+  expect:
+    kind: modify
+    ops:
+      - {op: undo}
+  tags: [colloquial]
+  note: 非精确撤销说法，不命中快速路径，需模型识别为 undo；不应改写成 remove D2-4（撤销恢复的是整版草稿，含时间安排）
+
+# ---------------- 困难 ----------------
+- id: modify_ref-018
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 第二天第一个跟第三天下午那个对调一下
+  expect:
+    kind: modify
+    ops:
+      - {op: swap, item_ids: [D2-1, D3-2], day: "*", part: "*"}
+  tags: [hard, reference]
+  note: 第二天第一个=D2-1 雷峰塔；第三天下午那个=D3-2 西溪湿地（第3天下午仅此一项）；swap 必须给恰好两个 item_ids，day/part 下游不使用故通配
+
+- id: modify_ref-019
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 林隐寺多待会儿，再加一个半小时
+  expect:
+    kind: modify
+    ops:
+      - {op: set_duration, item_ids: [D3-1], day: "*", minutes: 270}
+  tags: [hard, colloquial, reference]
+  note: “林隐寺”为灵隐寺错别字=D3-1；当前 180 分钟+90=270（总分钟数）
+
+- id: modify_ref-020
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 刚加的那个换成六和塔
+  recent_turns:
+    - {role: user, content: 下周二去杭州玩三天，喜欢历史和自然风景，灵隐寺一定要去}
+    - {role: assistant, content: 已为你生成杭州 3 天的行程草稿，第 1 天环湖北线，第 2 天南线，第 3 天灵隐和西溪。}
+    - {role: user, content: 第二天下午加一个中国茶叶博物馆}
+    - {role: assistant, content: 已在第 2 天 15:00 加入中国茶叶博物馆，其他安排不变。}
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, item_ids: [D2-4], day: "*", poi_name: 六和塔}
+  tags: [hard, reference]
+  note: 需结合最近对话：刚加的是中国茶叶博物馆=D2-4；replace 指定景点→poi_name
+
+- id: modify_ref-021
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 六和塔加到雷峰塔那天
+  expect:
+    kind: modify
+    ops:
+      - {op: add, poi_name: 六和塔, day: 2}
+  tags: [hard, reference]
+  note: 目标天由草稿推断：雷峰塔在第 2 天→day=2；item_ids 应为空（雷峰塔只是定位参照，不是被修改对象）
+
+- id: modify_ref-022
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 西溪湿地换成两个博物馆
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, item_ids: [D3-2], day: "*", target_tags: [museum], target_count: 2}
+  tags: [hard]
+  note: 西溪湿地=D3-2；按提示词“换成两个博物馆”→ target_tags=[museum]、target_count=2
+
+- id: modify_ref-023
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 不对不对，刚那步改错了，给我退回去
+  recent_turns:
+    - {role: user, content: 下周二去杭州玩三天，喜欢历史和自然风景，灵隐寺一定要去}
+    - {role: assistant, content: 已为你生成杭州 3 天的行程草稿，第 1 天环湖北线，第 2 天南线，第 3 天灵隐和西溪。}
+    - {role: user, content: 第二天下午加一个中国茶叶博物馆}
+    - {role: assistant, content: 已在第 2 天 15:00 加入中国茶叶博物馆，其他安排不变。}
+  expect:
+    kind: modify
+    ops:
+      - {op: undo}
+  tags: [hard, colloquial]
+  note: 口语化撤销，没有“撤销/恢复”字样；应输出 undo 而非 chat，也不应自行改写成 remove D2-4
+
+- id: modify_ref-024
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 第一天的雷峰塔删了
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, item_ids: [D2-1], day: "*"}
+  tags: [hard, reference]
+  note: 用户记错了天：雷峰塔实际在第 2 天（D2-1）。点名景点优先，按名称映射；不能输出 day=1 的选择器或 D1-x。day 通配（item_ids 非空时下游忽略）
+
+- id: modify_ref-025
+  category: modify_ref
+  scenario: drafting_hz3d
+  message: 白堤删了，岳王庙别动
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, item_ids: [D1-2], day: "*"}
+  tags: [hard]
+  note: 白堤=D1-2；“岳王庙别动”是否定干扰项，不应产生任何针对 D1-4 的操作，也不写入 must_visit

@@ -1,0 +1,16 @@
+.git
+.venv
+.idea
+.pytest_cache
+.ruff_cache
+__pycache__
+**/__pycache__
+*.py[oc]
+# 密钥在运行时通过 docker compose 的 env_file 注入，不打进镜像
+.env
+.env.*
+!.env.example
+logs
+evals/results
+tests
+docs

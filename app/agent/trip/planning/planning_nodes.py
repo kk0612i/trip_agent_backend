@@ -91,7 +91,10 @@ def search_queries(state: PlanningState) -> list[tuple[str, int]]:
     requirements = state["requirements"]
     scope = state["scope"]
     city = requirements.city.name if requirements.city else ""
-    preferred = [tag for tag, _ in sorted(requirements.preferences.items(), key=lambda kv: -kv[1])]
+    # 只为喜欢的标签追加搜索；不喜欢（负权重）的标签不搜索。
+    preferred = [
+        tag for tag, weight in sorted(requirements.preferences.items(), key=lambda kv: -kv[1]) if weight > 0
+    ]
     slot_tags = [tag for slot in scope.replace_slots for tag in slot.tags]
     extra = list(dict.fromkeys(
         TAG_SEARCH_KEYWORDS[tag] for tag in [*slot_tags, *preferred] if tag in TAG_SEARCH_KEYWORDS

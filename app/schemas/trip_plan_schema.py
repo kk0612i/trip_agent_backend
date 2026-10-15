@@ -195,7 +195,7 @@ class Requirements(StrictModel):
     days: int | None = Field(default=None, ge=1, le=MAX_TRIP_DAYS, description="游玩天数")
     pace: Pace = Field(default="normal", description="游玩节奏")
     preferences: dict[str, int] = Field(
-        default_factory=dict, description="偏好标签到权重（1 喜欢，2 非常喜欢）",
+        default_factory=dict, description="偏好标签到权重（1 喜欢，2 非常喜欢，-1 不喜欢）",
     )
     must_visit: list[PoiRef] = Field(default_factory=list, description="必去景点")
     avoid: list[PoiRef] = Field(default_factory=list, description="不去的景点")

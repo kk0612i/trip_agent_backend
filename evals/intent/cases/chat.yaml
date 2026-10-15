@@ -1,0 +1,67 @@
+# 类别 chat：寒暄、感谢、夸奖等无害闲聊。
+
+- id: chat-001
+  category: chat
+  scenario: collecting_empty
+  message: 你好呀
+  expect:
+    kind: chat
+    chat_reply: true
+  note: 纯寒暄，没有任何需求信息
+
+- id: chat-002
+  category: chat
+  scenario: drafting_hz3d
+  message: 谢谢，排得挺好的
+  expect:
+    kind: chat
+    chat_reply: true
+  note: 感谢和夸奖；不是精确确认词，不走规则快速路径，也不应被理解为确认或修改
+
+- id: chat-003
+  category: chat
+  scenario: drafting_hz3d
+  message: 就这样
+  expect:
+    kind: chat
+    chat_reply: true
+  tags: [fast_path]
+  note: drafting 且有草稿时，“就这样”命中 _CONFIRM_WORDS，规则直接返回 chat 并提示点击“确认行程”按钮
+
+- id: chat-004
+  category: chat
+  scenario: drafting_hz3d
+  message: 哈哈你还挺懂杭州的嘛，辛苦啦
+  expect:
+    kind: chat
+    chat_reply: true
+  note: 口语化夸奖；提到“杭州”不应填 city（城市已是杭州，且不是需求表达）
+
+- id: chat-005
+  category: chat
+  scenario: drafting_hz3d
+  message: 你是哪家公司做的AI啊
+  expect:
+    kind: chat
+    chat_reply: true
+  note: 与规划无关但无害的闲聊
+
+- id: chat-006
+  category: chat
+  scenario: confirmed_hz3d
+  message: 确认
+  expect:
+    kind: chat
+    chat_reply: true
+  tags: [hard]
+  note: confirmed 状态下“确认”不满足快速路径的 status=drafting 条件，交给模型；行程已确认，这只是寒暄式回应，不是修改也不是 plan_request
+
+- id: chat-007
+  category: chat
+  scenario: drafting_hz3d
+  message: 挺好的，就是第二天下雨有点可惜哈哈
+  expect:
+    kind: chat
+    chat_reply: true
+  tags: [hard]
+  note: 只是感慨，没有提出修改；不应自作主张生成“第二天户外换室内”或 day_load 等 ops

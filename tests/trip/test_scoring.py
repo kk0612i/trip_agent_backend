@@ -4,6 +4,7 @@ import pytest
 
 from app.agent.trip.planning.scoring import (
     DEFAULT_RATING_SCORE,
+    INTEREST_DISLIKED,
     INTEREST_NEUTRAL,
     INTEREST_UNMATCHED,
     build_candidate,
@@ -63,6 +64,22 @@ def test_interest_weight_above_two_capped() -> None:
 def test_interest_zero_weight_is_unmatched() -> None:
     """权重为 0 视为未命中。"""
     assert interest_score(MUSEUM, {"museum": 0}) == INTEREST_UNMATCHED
+
+
+@pytest.mark.parametrize("preferences", [{"museum": -1}, {"culture_art": -1}, {"museum": -1, "nature": 1}])
+def test_interest_disliked_is_lowest(preferences: dict[str, int]) -> None:
+    """命中不喜欢的类型且没有命中喜欢的类型时为最低分。"""
+    assert interest_score(MUSEUM, preferences) == INTEREST_DISLIKED == 0.0
+
+
+def test_interest_only_dislikes_keeps_others_neutral() -> None:
+    """只设置了不喜欢时，其他类型保持中性分，不当作未命中。"""
+    assert interest_score(MUSEUM, {"temple": -1}) == INTEREST_NEUTRAL
+
+
+def test_interest_liked_wins_over_disliked() -> None:
+    """细分体验和主体验类一喜一恶时，以喜欢为准。"""
+    assert interest_score(MUSEUM, {"culture_art": -1, "museum": 1}) == 7.0
 
 
 # ---------------------------------------------------------------------------

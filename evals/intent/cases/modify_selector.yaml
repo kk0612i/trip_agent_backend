@@ -1,0 +1,251 @@
+# 修改：按天 / 时段 / 标签的条件选择。场景均为 drafting_hz3d。
+# 选择器语义（select_items）：part 以 12:00 为界（start_min < 180 为上午）；
+# 标签匹配用 item_tags，mixed（室内外结合）归入 outdoor，不归入 indoor。
+# 各天上午：D1-1、D1-2 / D2-1、D2-2 / D3-1；下午：D1-3、D1-4 / D2-3、D2-4 / D3-2。
+# 规范要求条件描述时 item_ids 留空，因此所有用例的 item_ids 严格为空（未写出即为空）。
+
+# ---------------- 简单 ----------------
+- id: modify_selector-001
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 把第二天下午的户外景点换成室内的
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, day: 2, part: afternoon, tags: [outdoor], target_tags: [indoor]}
+  tags: [selector]
+  note: 第 2 天下午户外只有 D2-3 花港观鱼，但用户用条件描述，按规范用选择器
+
+- id: modify_selector-002
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 第二天的景点全删了吧
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, day: 2}
+  tags: [selector]
+  note: 按天选择→day=2，part/tags 为空，展开为 D2-1～D2-4；不是减少天数（days 应为空）
+
+- id: modify_selector-003
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 把所有寺庙都换成博物馆
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, tags: [temple], target_tags: [museum]}
+  tags: [selector]
+  note: 提示词示例“寺庙”→temple；不限天→day 为空，展开为 D2-2 净慈寺、D3-1 灵隐寺（灵隐寺是必去，下游 replace 会将其移出 must_visit，这是用户本意）
+
+- id: modify_selector-004
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 第一天上午的都不去了
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, day: 1, part: morning}
+  tags: [selector]
+  note: 第 1 天上午=D1-1 断桥残雪、D1-2 白堤；条件描述→选择器，不列 item_ids
+
+- id: modify_selector-005
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 第三天轻松点
+  expect:
+    kind: modify
+    ops:
+      - {op: day_load, day: 3, level: lighter}
+  tags: [selector]
+  note: 某天轻松→day_load lighter；作用于某天而非整体，pace 应为空
+
+- id: modify_selector-006
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 第一天再多安排点
+  expect:
+    kind: modify
+    ops:
+      - {op: day_load, day: 1, level: fuller}
+  tags: [selector]
+  note: 某天多安排→day_load fuller；不是整体 packed，pace 应为空
+
+- id: modify_selector-007
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 把户外的都换成室内的
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, tags: [outdoor], target_tags: [indoor]}
+  tags: [selector]
+  note: 提示词原例；不限天和时段。注意下游 mixed 也算 outdoor，会选中除两个博物馆外的全部 8 个景点（含必去灵隐寺）
+
+- id: modify_selector-008
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 第一天的历史类景点换成自然风光的
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, day: 1, tags: [history], target_tags: [nature]}
+  tags: [selector]
+  note: “历史类”对应主体验类 history（第 1 天仅 D1-4 岳王庙 memorial/history）；“自然风光”=nature
+
+# ---------------- 口语 ----------------
+- id: modify_selector-009
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 湖边那些都删了吧，看腻了
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, tags: [lake_river]}
+  tags: [selector, colloquial]
+  note: “湖边那些”=lake_river（D1-1 断桥残雪、D1-2 白堤）；“那些”是一批条件描述→选择器，day 为空（虽然都在第 1 天，用户没限定天）
+
+- id: modify_selector-010
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 第三天就俩地方有点空，再塞点东西
+  expect:
+    kind: modify
+    ops:
+      - {op: day_load, day: 3, level: fuller}
+  tags: [selector, colloquial]
+  note: “再塞点东西”=多安排→fuller；没有具体景点名，不应输出 add
+
+- id: modify_selector-011
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 下午太晒了，下午的户外景点都换成室内的
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, part: afternoon, tags: [outdoor], target_tags: [indoor]}
+  tags: [selector, colloquial]
+  note: 不限天→day 为空，part=afternoon；展开为 D1-4（mixed 归 outdoor）、D2-3、D3-2
+
+- id: modify_selector-012
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 每天下午的博物馆都去掉
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, part: afternoon, tags: [museum]}
+  tags: [selector, colloquial]
+  note: “每天”=不限天，day 为空（不应拆成 3 条按天的 op）；博物馆=museum；展开为 D1-3、D2-4
+
+- id: modify_selector-013
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 宗教类的都不要了
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, tags: [religion]}
+    preferences: [{}, {religion: -1}]
+  tags: [selector, colloquial]
+  note: “宗教类”对应主体验类 religion（宗教寺观）；在本草稿中与 temple 选中结果相同，但词表有精确对应，不放宽；不应写入 avoid。“都不要了”同时写 religion=-1 也可接受（之后补位和重排不再优先选宗教类），不写也对
+
+- id: modify_selector-014
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 第二天下午少安排点
+  expect:
+    kind: modify
+    ops:
+      - {op: day_load, day: 2, level: lighter, part: "*"}
+  tags: [selector, colloquial]
+  note: 提示词“少安排点”→day_load lighter；day_load 没有时段粒度，下游忽略 part，故 part 通配；“下午”可写入 unhandled（未判分）
+
+- id: modify_selector-015
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 最后一天别排太满
+  expect:
+    kind: modify
+    ops:
+      - {op: day_load, day: 3, level: lighter}
+  tags: [selector, colloquial]
+  note: “最后一天”=第 3 天（草稿共 3 天）；别排太满→lighter；不是整体节奏，pace 为空
+
+# ---------------- 困难 ----------------
+- id: modify_selector-016
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 下雨那天的户外景点换成室内
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, day: 2, tags: [outdoor], target_tags: [indoor]}
+  tags: [selector, weather, hard]
+  note: 需从草稿天气推断：只有第 2 天小雨→day=2。下游 mixed 归 outdoor，会选中 D2-1 雷峰塔、D2-2 净慈寺、D2-3 花港观鱼（草稿文本里前两者显示为 mixed，模型不必也不应改成 item_ids）
+
+- id: modify_selector-017
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 下雨那天轻松点吧
+  expect:
+    kind: modify
+    ops:
+      - {op: day_load, day: 2, level: lighter}
+  tags: [selector, weather, hard]
+  note: 天气推断 day=2；某天轻松→day_load lighter，pace 为空
+
+- id: modify_selector-018
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 晴天那天别待在室内，室内的换成户外的
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, day: 1, tags: [indoor], target_tags: [outdoor]}
+  tags: [selector, weather, hard]
+  note: 只有第 1 天是晴（第 3 天多云）→day=1；第 1 天室内仅 D1-3 浙博，但条件描述→选择器
+
+- id: modify_selector-019
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 上午的博物馆换成户外的
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, part: morning, tags: [museum], target_tags: [outdoor]}
+  tags: [selector, hard]
+  note: 草稿中两个博物馆都在下午，选择器会无匹配，由下游回复“没有找到”；模型应忠实输出 part=morning，不能擅自改成 afternoon 或填 D1-3/D2-4
+
+- id: modify_selector-020
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 第二天上午的景点换成一个博物馆就行
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, day: 2, part: morning, target_tags: [museum], target_count: 1}
+  tags: [selector, hard]
+  note: 第 2 天上午有 D2-1、D2-2 两个，“换成一个”→target_count=1（为空表示数量不变=2，结果不同，必须填）
+
+- id: modify_selector-021
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 第三天下午那块换成两个室内的景点
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, day: 3, part: afternoon, target_tags: [indoor], target_count: 2}
+  tags: [selector, hard]
+  note: 第 3 天下午=D3-2 西溪湿地（“那块”指时段）；换成两个→target_count=2；室内=indoor。直接写 item_ids=[D3-2] 在本草稿上选中的景点相同，判分时视为等价
+
+- id: modify_selector-022
+  category: modify_selector
+  scenario: drafting_hz3d
+  message: 第一天户外的那几个换成博物馆、美术馆这类的
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, day: 1, tags: [outdoor], target_tags: [museum, art_gallery]}
+  tags: [selector, hard]
+  note: 下游 target_tags 同一维度内为“任一”语义，[museum, art_gallery] 可满足，与提示词示例一致；culture_art 范围更宽（含展览、高校），不作为主标注。选中 D1-1、D1-2、D1-4（mixed 归 outdoor）

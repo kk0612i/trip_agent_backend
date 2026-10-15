@@ -1,0 +1,157 @@
+# 类别 state_boundary：已确认行程、无草稿时的修改、首次规划与草稿修改的区别。
+# 原则：理解模块只负责如实解析，状态规则（确认后只读、无草稿不能改景点）由 resolve 负责。
+
+- id: state_boundary-001
+  category: state_boundary
+  scenario: confirmed_hz3d
+  message: 把雷峰塔删了
+  expect:
+    kind: modify
+    ops:
+      - op: remove
+        item_ids: [D2-1]
+        day: "*"
+  note: 已确认行程仍有草稿，理解模块如实解析为删除 D2-1，由 resolve 的 confirmed 检查拒绝；不应因状态只读而改判为 chat
+
+- id: state_boundary-002
+  category: state_boundary
+  scenario: confirmed_hz3d
+  message: 第二天轻松点吧
+  expect:
+    kind: modify
+    ops:
+      - op: day_load
+        day: 2
+        level: lighter
+  note: 某天轻松点 → day_load lighter；confirmed 由下游拒绝
+
+- id: state_boundary-003
+  category: state_boundary
+  scenario: confirmed_hz3d
+  message: 能不能改成玩四天
+  expect:
+    kind: plan_request
+    days: 4
+  note: 修改天数属于需求变化 → plan_request；已确认状态由下游拒绝
+
+- id: state_boundary-004
+  category: state_boundary
+  scenario: confirmed_hz3d
+  message: 撤销
+  expect:
+    kind: modify
+    ops:
+      - op: undo
+  tags: [fast_path]
+  note: 撤销词的快速路径只检查 draft 不检查状态，confirmed 下也返回 modify/undo，resolve 再以 CONFIRMED_REPLY 拒绝
+
+- id: state_boundary-005
+  category: state_boundary
+  scenario: confirmed_hz3d
+  message: 我不想去杭州了，换成苏州吧
+  expect:
+    kind: switch_city
+    city: 苏州
+  note: 如实解析为换城市；城市锁定/只读由下游处理
+
+- id: state_boundary-006
+  category: state_boundary
+  scenario: collecting_city_only
+  message: 删掉雷峰塔
+  expect:
+    kind: plan_request
+    avoid: [雷峰塔]
+  tags: [hard]
+  note: 还没有草稿，ops 只在已有草稿时使用；“删掉某景点”在收集阶段等价于“不去”，写入 avoid，kind 为 plan_request（提供“不去”需求）
+
+- id: state_boundary-007
+  category: state_boundary
+  scenario: collecting_city_only
+  message: 第二天去灵隐寺
+  expect:
+    kind: plan_request
+    must_visit:
+      - name: 灵隐寺
+        day: 2
+  note: 提示词明确：首次规划时“第二天去灵隐寺”写入 must_visit 并给 day，不是 ops
+
+- id: state_boundary-008
+  category: state_boundary
+  scenario: collecting_empty
+  message: 10月24号去杭州玩三天，第一天逛西湖，第三天去灵隐寺
+  expect:
+    kind: plan_request
+    city: 杭州
+    start_date: 2026-10-24
+    days: 3
+    must_visit:
+      - name: 西湖
+        day: 1
+      - name: 灵隐寺
+        day: 3
+  note: 首次规划一次性给出全部需求，按天指定的景点进 must_visit 带 day；无草稿不能有 ops
+
+- id: state_boundary-009
+  category: state_boundary
+  scenario: drafting_hz3d
+  message: 第二天去灵隐寺
+  expect:
+    kind: modify
+    ops:
+      - op: move
+        item_ids: [D3-1]
+        to_day: 2
+  tags: [hard]
+  note: 与 state_boundary-007 同一句话，但已有草稿且灵隐寺在 D3-1，按 ops 规则点名景点要转成引用编号 → move 到第 2 天。注意下游对 must_visit 带 day 也会转成 MoveItemsOp，但提示词要求草稿期用 ops，故严格按 ops 标注
+
+- id: state_boundary-010
+  category: state_boundary
+  scenario: collecting_city_only
+  message: 把第二天下午的寺庙都删了
+  expect:
+    kind: [plan_request, modify]
+  ignore: [ops]
+  tags: [hard]
+  note: 无草稿时的选择器式修改：提示词要求写入 unhandled、不输出 ops；即使输出了 ops，resolve 也只会提示“草稿生成后再提”，结果相同，故 ops、unhandled 都不判分。重点检查不编造 avoid 和偏好
+
+- id: state_boundary-011
+  category: state_boundary
+  scenario: confirmed_hz3d
+  message: 行程确认了还能改吗？想加个宋城
+  expect:
+    kind: modify
+    ops:
+      - op: add
+        poi_name: 宋城
+  ignore: [question]
+  tags: [hard]
+  note: 提问 + 修改混合，按如实解析原则取 modify（add 宋城，未指定天 day 为空），由下游以“已确认不能修改”回复，正好也回答了“还能改吗”；question 字段不判分
+
+- id: state_boundary-012
+  category: state_boundary
+  scenario: drafting_hz3d
+  message: 我再想想，先不改了
+  expect:
+    kind: cancel
+  tags: [cancel]
+  note: 没有待回答问题时表示这次不调整→cancel；不能输出 undo（会回滚到上一版），也不是 plan_request
+
+- id: state_boundary-013
+  category: state_boundary
+  scenario: collecting_city_only
+  message: 算了，我还没想好，先不规划了
+  expect:
+    kind: [cancel, chat]
+  tags: [cancel]
+  note: 收集阶段放弃本轮，cancel 或 chat 都只是回复，不应填任何需求字段
+
+- id: state_boundary-014
+  category: state_boundary
+  scenario: drafting_hz3d
+  message: 第8天加个宋城
+  expect:
+    kind: modify
+    ops:
+      - {op: add, poi_name: 宋城, day: 8}
+  tags: [hard]
+  note: 草稿只有 3 天，应如实解析 day=8，由下游提示“行程只有 3 天”；不能擅自改成其他天，也不应改 days

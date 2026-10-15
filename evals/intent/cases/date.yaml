@@ -1,0 +1,256 @@
+# 日期换算。今天 2026-10-15 周四；杭州草稿出发日 2026-10-20 周二。日期均用 Python datetime 核对。
+- id: date-001
+  category: date
+  scenario: collecting_shanghai_partial
+  message: 明天出发
+  expect:
+    kind: plan_request
+    start_date: 2026-10-16
+  tags: [simple, relative_date]
+  note: 今天 10-15 → 明天 2026-10-16（周五）；回答自由追问→plan_request
+
+- id: date-002
+  category: date
+  scenario: collecting_city_only
+  message: 后天走，玩两天
+  expect:
+    kind: plan_request
+    start_date: 2026-10-17
+    days: 2
+  tags: [simple, relative_date]
+  note: 后天=2026-10-17（周六）；days=2
+
+- id: date-003
+  category: date
+  scenario: collecting_empty
+  message: 下周五出发去南京，待两天
+  expect:
+    kind: plan_request
+    city: 南京
+    start_date: 2026-10-23
+    days: 2
+  tags: [simple, relative_date]
+  note: 今天周四，“下周五”指下一个自然周的周五=2026-10-23，不是明天 10-16
+
+- id: date-004
+  category: date
+  scenario: collecting_shanghai_partial
+  message: 这周六吧
+  expect:
+    kind: plan_request
+    start_date: 2026-10-17
+  tags: [simple, relative_date]
+  note: “这周六”=本周的周六=2026-10-17
+
+- id: date-005
+  category: date
+  scenario: collecting_city_only
+  message: 10月25号出发，三天
+  expect:
+    kind: plan_request
+    start_date: 2026-10-25
+    days: 3
+  tags: [simple, absolute_date]
+  note: 绝对日期 2026-10-25（周日），年份取今年
+
+- id: date-006
+  category: date
+  scenario: collecting_shanghai_partial
+  message: 25号
+  expect:
+    kind: plan_request
+    start_date: 2026-10-25
+  tags: [colloquial, absolute_date]
+  note: 只说“25号”，当月 25 号尚未过→2026-10-25；处在“哪天出发”的追问下，含义明确
+
+- id: date-007
+  category: date
+  scenario: collecting_city_only
+  message: 3号出发，玩4天
+  expect:
+    kind: plan_request
+    start_date: 2026-11-03
+    days: 4
+  tags: [hard, cross_month]
+  note: 本月 3 号（10-03）已过，出发日期不能早于今天，应理解为下个月 3 号=2026-11-03（周二，仍在日期表 21 天范围内）
+
+- id: date-008
+  category: date
+  scenario: collecting_city_only
+  message: 10月30号去，玩5天
+  expect:
+    kind: plan_request
+    start_date: 2026-10-30
+    days: 5
+  tags: [cross_month]
+  note: 出发 2026-10-30，行程 10-30～11-03 跨月；start_date 仍是 10-30，不要输出结束日期
+
+- id: date-009
+  category: date
+  scenario: collecting_city_only
+  message: 这周末去，周六周日两天
+  expect:
+    kind: plan_request
+    start_date: 2026-10-17
+    days: 2
+  tags: [colloquial, relative_date]
+  note: 这周末=10-17（周六）、10-18（周日）；出发=2026-10-17，days=2
+
+- id: date-010
+  category: date
+  scenario: collecting_city_only
+  message: 下周末两天吧
+  expect:
+    kind: plan_request
+    start_date: 2026-10-24
+    days: 2
+  tags: [colloquial, relative_date]
+  note: 今天周四，“下周末”=下一个自然周的周六日=10-24、10-25；出发 2026-10-24
+
+- id: date-011
+  category: date
+  scenario: collecting_city_only
+  message: 周五到周日
+  expect:
+    kind: plan_request
+    start_date: 2026-10-16
+    days: 3
+  tags: [hard, date_range]
+  note: 日期区间：最近的周五=明天 2026-10-16，到周日 10-18，含首尾共 3 天；天数需从区间推出
+
+- id: date-012
+  category: date
+  scenario: collecting_city_only
+  message: 20号到23号这几天
+  expect:
+    kind: plan_request
+    start_date: 2026-10-20
+    days: 4
+  tags: [hard, date_range]
+  note: 10-20～10-23 含首尾共 4 天（不是 23-20=3）
+
+- id: date-013
+  category: date
+  scenario: collecting_shanghai_partial
+  message: 后天，哦不对，大后天
+  expect:
+    kind: plan_request
+    start_date: 2026-10-18
+  tags: [hard, correction, relative_date]
+  note: 以修正后为准：大后天=今天+3=2026-10-18（周日）。日期表只标注到“后天”，需自行数
+
+- id: date-014
+  category: date
+  scenario: collecting_shanghai_partial
+  message: 下下周一出发
+  expect:
+    kind: plan_request
+    start_date: 2026-10-26
+  tags: [hard, relative_date]
+  note: 下周一=10-19，下下周一=2026-10-26
+
+- id: date-015
+  category: date
+  scenario: collecting_city_only
+  message: 就玩两天，什么时候出发还没想好
+  expect:
+    kind: plan_request
+    days: 2
+  tags: [days_only]
+  note: 只说天数不说日期，start_date 必须为空，不能默认填今天或明天
+
+- id: date-016
+  category: date
+  scenario: collecting_city_only
+  message: 国庆那会儿人太多没去成，打算错峰过去玩两天，日子还没定
+  expect:
+    kind: plan_request
+    days: 2
+  tags: [hard, holiday, days_only]
+  note: 国庆（10-01～10-07）已过，提到国庆只是背景，没有给出出发日期→start_date 为空；不能把“国庆后”换算成 10-08（早于今天，下游会报错）
+
+- id: date-017
+  category: date
+  scenario: collecting_city_only
+  message: 打算月底过去，玩3天
+  expect:
+    kind: plan_request
+    days: 3
+  ignore: [start_date]
+  tags: [hard, vague_date]
+  note: “月底”没有具体到哪天；填 2026-10-31（周六）或留空都有道理，规范未规定模糊日期如何处理，start_date 不判分，只判 days=3
+
+- id: date-018
+  category: date
+  scenario: drafting_hz3d
+  message: 出发日期往后推一天
+  expect:
+    kind: plan_request
+    start_date: 2026-10-21
+  tags: [hard, relative_to_draft]
+  note: 相对的是草稿出发日 2026-10-20 而不是今天：推一天=2026-10-21；修改日期属于需求变化→plan_request，不是 modify
+
+- id: date-019
+  category: date
+  scenario: drafting_hz3d
+  message: 改成下周四出发吧，天数不变
+  expect:
+    kind: plan_request
+    start_date: 2026-10-22
+  tags: [relative_date]
+  note: 今天周四，下周四=2026-10-22；“天数不变”不应重复填 days=3
+
+- id: date-020
+  category: date
+  scenario: collecting_city_only
+  message: 11月2号到4号
+  expect:
+    kind: plan_request
+    start_date: 2026-11-02
+    days: 3
+  tags: [cross_month, date_range]
+  note: 跨月的绝对日期区间：2026-11-02（周一）～11-04，含首尾 3 天
+
+- id: date-021
+  category: date
+  scenario: collecting_city_only
+  message: 10月30日出发，玩两天
+  expect:
+    kind: plan_request
+    start_date: 2026-10-30
+    days: 2
+  tags: [simple, absolute_date]
+  note: 绝对日期，年份按今天 2026 补全
+
+- id: date-022
+  category: date
+  scenario: collecting_empty
+  message: 2026年11月7号去苏州，待3天
+  expect:
+    kind: plan_request
+    city: 苏州
+    start_date: 2026-11-07
+    days: 3
+  tags: [absolute_date, full_info]
+  note: 带年份的绝对日期 + 城市 + 天数，一句话给全
+
+- id: date-023
+  category: date
+  scenario: drafting_hz3d
+  message: 出发日期改到10月28号
+  expect:
+    kind: plan_request
+    start_date: 2026-10-28
+  tags: [absolute_date, drafting]
+  note: 草稿阶段只改出发日期，天数不变，不应重复填 days=3；kind 写 modify 下游等价
+
+- id: date-024
+  category: date
+  scenario: collecting_city_only
+  message: 过几天去，玩两天
+  expect:
+    kind: plan_request
+    days: 2
+  ignore: [start_date]
+  tags: [vague, vague_date]
+  note: “过几天”没有确切日期，留空让下游追问或自行推断都可以，start_date 不判分；天数明确为 2

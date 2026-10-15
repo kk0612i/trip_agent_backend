@@ -37,6 +37,7 @@ AFTERNOON_START_MIN = 180
 _MISSING_LABELS = {"city": "目的地城市", "start_date": "出发日期", "days": "游玩天数"}
 OUT_OF_SCOPE_REPLY = "我只负责景点和游玩路线规划，暂不推荐住宿和餐饮。有景点或行程上的需求可以随时告诉我。"
 CONFIRMED_REPLY = "这份行程已经确认，不能再修改。如需新的安排，请新建一个行程。"
+CANCEL_REPLY = "好的，这次先不调整，保持原样。还有其他想法随时告诉我。"
 
 
 class ResolveError(Exception):
@@ -104,7 +105,11 @@ def fast_path_intent(context: TripContext, message: str) -> TurnIntent | None:
             return TurnIntent(kind="answer_pending", pending_option=_CN_DIGITS.get(raw) or int(raw))
     if text in _UNDO_WORDS and context.draft is not None:
         return TurnIntent(kind="modify", ops=[IntentEditOp(op="undo")])
-    if text in _CONFIRM_WORDS and context.draft is not None and context.status == "drafting":
+    # 有待回答的问题时，“确定”“就这样”可能是在回应问题，交给模型结合问题理解。
+    if (
+        text in _CONFIRM_WORDS and context.draft is not None and context.status == "drafting"
+        and context.pending is None
+    ):
         return TurnIntent(kind="chat", chat_reply="满意的话请点击页面上的“确认行程”按钮，确认后行程将不能再修改。")
     return None
 
@@ -202,6 +207,15 @@ def _drop_ref(refs: list[PoiRef], poi_id: str) -> list[PoiRef]:
     return [r for r in refs if r.poi_id != poi_id]
 
 
+def _has_requirement_payload(intent: TurnIntent) -> bool:
+    """意图中是否带有需求变化或修改操作。"""
+    return bool(
+        intent.city or intent.start_date or intent.days or intent.pace or intent.preferences
+        or intent.clear_preferences or intent.must_visit or intent.avoid or intent.ops
+        or intent.walk_only is not None or intent.max_walk_minutes is not None,
+    )
+
+
 class IntentResolver:
     """一轮意图解析，持有本轮的会话快照和高德客户端。"""
 
@@ -229,6 +243,14 @@ class IntentResolver:
             本轮解析结果。
         """
         status = self.context.status
+        if intent.kind == "cancel":
+            return self._reply(CANCEL_REPLY)
+        if intent.kind in ("out_of_scope", "chat") and status != "confirmed" and _has_requirement_payload(intent):
+            # 一句话里既有需求又有范围外请求或闲聊时，先保住需求，范围外部分作为说明回复。
+            if intent.kind == "out_of_scope":
+                self.notes.append(OUT_OF_SCOPE_REPLY)
+                intent = intent.model_copy(update={"unhandled": []})
+            intent = intent.model_copy(update={"kind": "plan_request"})
         if intent.kind == "out_of_scope":
             return self._reply(OUT_OF_SCOPE_REPLY, keep_pending=True)
         if intent.kind == "chat":

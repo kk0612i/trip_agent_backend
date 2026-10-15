@@ -1,0 +1,96 @@
+# 类别 out_of_scope：住宿、餐饮、订票等本助手不提供的内容，以及与范围内请求混合的消息。
+
+- id: out_of_scope-001
+  category: out_of_scope
+  scenario: drafting_hz3d
+  message: 杭州有什么好的酒店推荐吗
+  expect:
+    kind: out_of_scope
+  note: 推荐酒店住宿，提示词明确不提供
+
+- id: out_of_scope-002
+  category: out_of_scope
+  scenario: drafting_hz3d
+  message: 西湖边上有啥好吃的？
+  expect:
+    kind: out_of_scope
+  note: 美食推荐，属于餐饮
+
+- id: out_of_scope-003
+  category: out_of_scope
+  scenario: drafting_hz3d
+  message: 灵隐寺附近有没有吃素斋的地方
+  expect:
+    kind: out_of_scope
+  note: 问的是餐厅而不是景点资料，虽然是疑问句也不是 question
+
+- id: out_of_scope-004
+  category: out_of_scope
+  scenario: drafting_hz3d
+  message: 能直接帮我把雷峰塔的票订了吗
+  expect:
+    kind: out_of_scope
+  note: 订票属于本助手不提供的服务（提示词“等本助手不提供的内容”）；不是门票咨询，也不是修改
+
+- id: out_of_scope-005
+  category: out_of_scope
+  scenario: collecting_empty
+  message: 火车票能在你这一起订吗？
+  expect:
+    kind: out_of_scope
+  note: 订交通票，范围外；虽是疑问句，但询问的是助手不提供的服务
+
+- id: out_of_scope-006
+  category: out_of_scope
+  scenario: confirmed_hz3d
+  message: 行程定好了，第一天晚上住哪儿比较方便？
+  expect:
+    kind: out_of_scope
+  tags: [hard]
+  note: 已确认状态下的住宿咨询；提到“第一天”不代表修改，resolve 先处理 out_of_scope 再检查 confirmed
+
+- id: out_of_scope-007
+  category: out_of_scope
+  scenario: drafting_hz3d
+  message: 附近有什么好吃的顺便规划一下
+  expect:
+    kind: out_of_scope
+  tags: [hard]
+  note: 混合请求的主体是餐饮；“顺便规划一下”指的是把吃的排进行程，本身没有可执行的景点需求或修改（草稿已存在），故主标注 out_of_scope，不应生成 plan_request 重排
+
+- id: out_of_scope-008
+  category: out_of_scope
+  scenario: drafting_hz3d
+  message: 第三天灵隐寺附近有什么好吃的推荐一下，另外那天安排得轻松点
+  expect:
+    kind: modify
+    ops:
+      - op: day_load
+        day: 3
+        level: lighter
+    unhandled: true
+  tags: [hard]
+  note: 餐饮 + 可执行修改混合。主标注 modify：若取 out_of_scope，resolve 直接回复范围外、修改被丢弃；取 modify 时餐饮部分无法映射，应写入 unhandled，下游会提示“暂时没法处理”
+
+- id: out_of_scope-009
+  category: out_of_scope
+  scenario: collecting_city_only
+  message: 后天出发玩两天，顺便推荐个西湖边的酒店
+  expect:
+    kind: plan_request
+    start_date: 2026-10-17
+    days: 2
+    unhandled: true
+  tags: [hard]
+  note: 回答追问（日期+天数）同时要酒店。主标注 plan_request，否则日期天数会丢失；酒店部分写入 unhandled。后天=2026-10-17
+
+- id: out_of_scope-010
+  category: out_of_scope
+  scenario: collecting_shanghai_partial
+  message: 下周六出发，帮我订个外滩附近的酒店
+  expect:
+    kind: plan_request
+    start_date: 2026-10-24
+    unhandled: true
+  tags: [hard]
+  note: 回答出发日期 + 订酒店。主标注 plan_request + unhandled，日期不能丢；今天周四，下周六=2026-10-24

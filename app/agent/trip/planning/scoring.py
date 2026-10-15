@@ -9,9 +9,10 @@ from app.schemas.trip_plan_schema import AmapPoi, Candidate, ObjectiveWeights, P
 
 from app.agent.trip.planning.tags import item_tags
 
-# 兴趣分：未设置偏好时为中性分，未命中偏好为低分，按命中权重给高分。
+# 兴趣分：未设置偏好时为中性分，未命中偏好为低分，按命中权重给高分，命中“不喜欢”最低。
 INTEREST_NEUTRAL = 5.0
 INTEREST_UNMATCHED = 2.0
+INTEREST_DISLIKED = 0.0
 INTEREST_BY_WEIGHT = {1: 7.0, 2: 10.0}
 # 缺少任何评分数据时使用的评分分。
 DEFAULT_RATING_SCORE = 7.0
@@ -19,6 +20,9 @@ DEFAULT_RATING_SCORE = 7.0
 
 def interest_score(profile: PoiProfile, preferences: dict[str, int]) -> float:
     """按细分体验和主体验类匹配偏好，取命中的最高权重。
+
+    负权重表示不喜欢：只在没有命中任何喜欢的标签时生效，给最低分（软约束，不排除景点）。
+    只设置了不喜欢时，其余景点按中性分，不视为“未命中偏好”。
 
     Args:
         profile: 景点属性。
@@ -29,8 +33,14 @@ def interest_score(profile: PoiProfile, preferences: dict[str, int]) -> float:
     """
     if not preferences:
         return INTEREST_NEUTRAL
-    weight = max(preferences.get(profile.subtype, 0), preferences.get(profile.main_category, 0))
-    return INTEREST_BY_WEIGHT.get(min(weight, 2), INTEREST_UNMATCHED) if weight else INTEREST_UNMATCHED
+    weights = [preferences[tag] for tag in (profile.subtype, profile.main_category) if tag in preferences]
+    liked = max((w for w in weights if w > 0), default=0)
+    if liked:
+        return INTEREST_BY_WEIGHT[min(liked, 2)]
+    if any(w < 0 for w in weights):
+        return INTEREST_DISLIKED
+    has_likes = any(w >= 0 for w in preferences.values())
+    return INTEREST_UNMATCHED if has_likes else INTEREST_NEUTRAL
 
 
 def rating_fallback(pois: list[AmapPoi]) -> float:

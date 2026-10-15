@@ -5,6 +5,7 @@ from datetime import date
 import pytest
 
 from app.agent.trip.intent_resolve import (
+    CANCEL_REPLY,
     CONFIRMED_REPLY,
     OUT_OF_SCOPE_REPLY,
     AmbiguousPoi,
@@ -163,6 +164,11 @@ def test_fast_path_confirm_only_in_drafting() -> None:
     """已确认或没有草稿时，确认词不走快速通道。"""
     assert fast_path_intent(context(status="confirmed"), "确认") is None
     assert fast_path_intent(context(status="collecting"), "确认") is None
+
+
+def test_fast_path_confirm_skipped_with_pending() -> None:
+    """有待回答问题时“确定”可能是在回答问题，交给模型理解。"""
+    assert fast_path_intent(context(pending=options_pending()), "确认") is None
 
 
 def test_fast_path_other_text() -> None:
@@ -330,6 +336,51 @@ async def test_chat_reply() -> None:
     assert (res.route, res.reply) == ("reply", "你好呀")
     res = await resolve(context(), TurnIntent(kind="chat"))
     assert res.reply.startswith("好的。")
+
+
+@pytest.mark.asyncio
+async def test_cancel_keeps_draft_and_clears_pending() -> None:
+    """放弃本次修改时保持原样，并清除待回答问题。"""
+    res = await resolve(context(pending=options_pending()), TurnIntent(kind="cancel"))
+    assert res.route == "reply"
+    assert res.reply == CANCEL_REPLY
+    assert res.pending is None
+    assert res.ops == []
+
+
+@pytest.mark.asyncio
+async def test_out_of_scope_with_requirements_still_applies() -> None:
+    """一句话里既有需求又有范围外请求时，需求照常生效，范围外部分作为说明。"""
+    intent = TurnIntent(kind="out_of_scope", pace="relaxed", unhandled=["帮我订酒店"])
+    res = await resolve(context(), intent)
+    assert res.route == "plan"
+    assert res.requirements.pace == "relaxed"
+    assert OUT_OF_SCOPE_REPLY in res.notes
+    assert not any("暂时没法处理" in note for note in res.notes)
+
+
+@pytest.mark.asyncio
+async def test_chat_with_requirements_still_applies() -> None:
+    """闲聊里带了需求变化时按需求处理。"""
+    res = await resolve(context(), TurnIntent(kind="chat", chat_reply="好的", pace="packed"))
+    assert res.route == "plan"
+    assert res.requirements.pace == "packed"
+
+
+@pytest.mark.asyncio
+async def test_out_of_scope_with_requirements_when_confirmed() -> None:
+    """已确认的行程不因夹带需求而进入规划，仍按范围外回复。"""
+    res = await resolve(context(status="confirmed"), TurnIntent(kind="out_of_scope", pace="relaxed"))
+    assert res.route == "reply"
+    assert res.reply == OUT_OF_SCOPE_REPLY
+
+
+@pytest.mark.asyncio
+async def test_op_day_beyond_draft_rejected() -> None:
+    """操作指向草稿之外的天时提示天数范围，而不是在结构校验阶段失败。"""
+    res = await resolve(context(), modify(IntentEditOp(op="day_load", day=8, level="lighter")))
+    assert res.route == "reply"
+    assert res.reply == "行程只有 3 天，请指定第 1～3 天。"
 
 
 @pytest.mark.asyncio

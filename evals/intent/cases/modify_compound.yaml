@@ -1,0 +1,227 @@
+# 修改：一句话多个修改、修改与需求变化混合、容易误判成 plan_request / question 的修改。场景均为 drafting_hz3d。
+# 提示词规定：同时包含需求变化和修改时 kind 取 modify，并同时填写需求字段和 ops；多个独立修改分别写成多条 ops。
+
+# ---------------- 简单 ----------------
+- id: modify_compound-001
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 删掉雷峰塔，另外节奏放慢点
+  expect:
+    kind: modify
+    pace: relaxed
+    ops:
+      - {op: remove, item_ids: [D2-1], day: "*"}
+  tags: [multi_op]
+  note: 提示词规定的混合情形：kind=modify，同时填 pace=relaxed 与 remove D2-1（雷峰塔）
+
+- id: modify_compound-002
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 雷峰塔删掉，再把灵隐寺挪到第二天
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, item_ids: [D2-1], day: "*"}
+      - {op: move, item_ids: [D3-1], day: "*", to_day: 2}
+  tags: [multi_op]
+  note: 两个独立修改→两条 ops；雷峰塔=D2-1，灵隐寺=D3-1
+
+- id: modify_compound-003
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 第一天加个河坊街，第三天加九溪烟树
+  expect:
+    kind: modify
+    ops:
+      - {op: add, poi_name: 河坊街, day: 1}
+      - {op: add, poi_name: 九溪烟树, day: 3}
+  tags: [multi_op]
+  note: 两个新增分别指定天→两条 add；不应写入 must_visit
+
+- id: modify_compound-004
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 第二天轻松点，第三天多安排点
+  expect:
+    kind: modify
+    ops:
+      - {op: day_load, day: 2, level: lighter}
+      - {op: day_load, day: 3, level: fuller}
+  tags: [multi_op, selector]
+  note: 两天方向相反的 day_load；不能合并为整体 pace
+
+- id: modify_compound-005
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 断桥和白堤都删了
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, item_ids: [D1-1, D1-2], day: "*"}
+  tags: [multi_op, reference]
+  note: 断桥=D1-1、白堤=D1-2，同一动作作用于两个点名景点→一条 remove 两个 item_ids（item_ids 本身是列表）。拆成两条 remove 下游等价，但判分会记为不符，见报告
+
+# ---------------- 口语 / 易误判 ----------------
+- id: modify_compound-006
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 雷峰塔多逛半小时，净慈寺那边缩到四十分钟
+  expect:
+    kind: modify
+    ops:
+      - {op: set_duration, item_ids: [D2-1], day: "*", minutes: 120}
+      - {op: set_duration, item_ids: [D2-2], day: "*", minutes: 40}
+  tags: [multi_op, colloquial]
+  note: 雷峰塔 D2-1 当前 90 分钟+30=120（相对换算）；净慈寺 D2-2 “缩到四十分钟”是绝对值=40
+
+- id: modify_compound-007
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 第一天轻松点，另外以后都不打车了，只走路
+  expect:
+    kind: modify
+    walk_only: true
+    ops:
+      - {op: day_load, day: 1, level: lighter}
+  tags: [multi_op, colloquial]
+  note: 修改+交通需求混合→kind=modify，walk_only=true，ops 为第 1 天 lighter
+
+- id: modify_compound-008
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 灵隐寺能不能多玩一个小时？
+  expect:
+    kind: modify
+    ops:
+      - {op: set_duration, item_ids: [D3-1], day: "*", minutes: 240}
+  tags: [colloquial]
+  note: 问句形式的修改请求，不是需要查询资料的 question；灵隐寺 D3-1 当前 180 分钟+60=240；question 应为空
+
+- id: modify_compound-009
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 有没有可能把西溪挪到第一天下午？
+  expect:
+    kind: modify
+    ops:
+      - {op: move, item_ids: [D3-2], day: "*", part: "*", to_day: 1}
+  tags: [colloquial]
+  note: 问句形式的移动请求；西溪=D3-2，to_day=1。move 不支持指定时段，part 下游忽略故通配；question 应为空
+
+- id: modify_compound-010
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 第一天下午只有两个点，是不是有点空？给我再加个河坊街吧
+  expect:
+    kind: modify
+    ops:
+      - {op: add, poi_name: 河坊街, day: 1}
+  tags: [colloquial]
+  note: 前半句是自问式铺垫，不是咨询；只有一个具体修改 add 河坊街 day=1，不应再额外输出 day_load fuller
+
+- id: modify_compound-011
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 节奏紧凑点，第三天再加个宋城
+  expect:
+    kind: modify
+    pace: packed
+    ops:
+      - {op: add, poi_name: 宋城, day: 3}
+  tags: [multi_op, colloquial]
+  note: 整体节奏 packed（需求变化）+ add 宋城 day=3 → kind=modify 同时填两者
+
+- id: modify_compound-012
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 第二天上午的都删了，把河坊街加到第二天
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, day: 2, part: morning}
+      - {op: add, poi_name: 河坊街, day: 2}
+  tags: [multi_op, selector, colloquial]
+  note: 选择器删除（第 2 天上午=D2-1、D2-2，item_ids 留空）+ 指定天新增；两条 ops，不应合并成 replace
+
+# ---------------- 困难 ----------------
+- id: modify_compound-013
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 宋城一定要去，放第三天
+  expect:
+    kind: modify
+    ops:
+      - {op: add, poi_name: 宋城, day: 3}
+  tags: [hard]
+  note: 易误判为 plan_request+must_visit。提示词写明“第N天去X”只在首次规划时写入 must_visit，已有草稿时用 add+day。must_visit 必须为空：若同时填 must_visit 和 add，下游会生成两条 AddPoiOp
+
+- id: modify_compound-014
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 雷峰塔换成六和塔吧，对了六和塔几点关门？
+  expect:
+    kind: modify
+    ops:
+      - {op: replace, item_ids: [D2-1], day: "*", poi_name: 六和塔}
+  ignore: [question]
+  tags: [hard, multi_op]
+  note: 修改+资料问题混合。kind 只能取一个，修改是可执行主意图→modify；规范没规定此时是否填 question（且下游 modify 路径不处理 question），故 ignore question
+
+- id: modify_compound-015
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 再加一天，第四天去宋城
+  expect:
+    kind: modify
+    days: 4
+    ops:
+      - {op: add, poi_name: 宋城, day: 4}
+  tags: [hard, multi_op]
+  note: 天数变化 days=4 + 指定天新增 → kind=modify。按规范已有草稿时用 add+day=4；注意下游 _check_day 按当前草稿 3 天校验会报错，见报告
+
+- id: modify_compound-016
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 少玩一天吧，第三天的灵隐寺挪到第二天
+  expect:
+    kind: modify
+    days: 2
+    ops:
+      - {op: move, item_ids: [D3-1], day: "*", to_day: 2}
+  tags: [hard, multi_op]
+  note: days=2 + move D3-1 to_day=2；下游天数变化会整体重排，但 move 已把必去灵隐寺的 day 写入需求，用户意图得以保留
+
+- id: modify_compound-017
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 西溪湿地换成历史类的吧，我特别喜欢历史
+  expect:
+    kind: modify
+    preferences: {history: 2}
+    ops:
+      - {op: replace, item_ids: [D3-2], day: "*", target_tags: [history]}
+  tags: [hard, multi_op]
+  note: replace D3-2 → target_tags=[history]；“特别喜欢”→偏好 history weight=2（原为 1，属需求变化）；kind=modify。不应输出 clear_preferences
+
+- id: modify_compound-018
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 净慈寺不想去了，以后寺庙少排点
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, item_ids: [D2-2], day: "*"}
+    preferences: {"temple|religion": -1}
+  tags: [hard, negation]
+  note: 净慈寺=D2-2→remove；“寺庙少排点”→temple（或 religion）weight=-1。不能编造成 replace/remove tags=[temple]（会动到必去的灵隐寺）
+
+- id: modify_compound-019
+  category: modify_compound
+  scenario: drafting_hz3d
+  message: 行程整体挺好的，就是第一天上午有点赶，把白堤删了吧
+  expect:
+    kind: modify
+    ops:
+      - {op: remove, item_ids: [D1-2], day: "*"}
+  tags: [hard, colloquial]
+  note: 前半句是评价（不是 chat），“有点赶”是理由，用户已给出具体方案 remove D1-2 白堤；不应额外输出 day_load lighter 或 pace
